@@ -4,7 +4,8 @@
   "description": "Exam preparation platform for CBSE and Cambridge students",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "vite build",
+    "build:backend": "tsc",
     "dev": "tsx watch src/index.ts",
     "dev:frontend": "vite",
     "build:frontend": "vite build",
