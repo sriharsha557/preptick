@@ -1,0 +1,185 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User Profiles
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  curriculum   String   // 'CBSE' | 'Cambridge'
+  grade        Int      // 1-10
+  subjects     String   // JSON array of subjects
+  createdAt    DateTime @default(now())
+  lastLogin    DateTime @default(now())
+
+  tests              Test[]
+  testSessions       TestSession[]
+  evaluations        Evaluation[]
+  performanceReports PerformanceReport[]
+  userQuestions      UserQuestion[]
+
+  @@index([curriculum, grade])
+}
+
+// Syllabus Topics
+model SyllabusTopic {
+  id               String  @id @default(uuid())
+  curriculum       String  // 'CBSE' | 'Cambridge'
+  grade            Int     // 1-10
+  subject          String
+  topicName        String
+  parentTopicId    String?
+  syllabusSection  String
+  officialContent  String  @default("")
+  learningObjectives String @default("[]") // JSON array
+
+  parentTopic SyllabusTopic?  @relation("TopicHierarchy", fields: [parentTopicId], references: [id])
+  childTopics SyllabusTopic[] @relation("TopicHierarchy")
+  questions   Question[]
+
+  @@index([curriculum, grade, subject])
+  @@index([parentTopicId])
+}
+
+// Questions in the Question Bank
+model Question {
+  id                String   @id @default(uuid())
+  topicId           String
+  questionText      String
+  questionType      String   // 'MultipleChoice' | 'ShortAnswer' | 'Numerical'
+  options           String?  // JSON array for multiple choice
+  correctAnswer     String
+  syllabusReference String
+  difficulty        String   @default("ExamRealistic")
+  createdAt         DateTime @default(now())
+
+  topic         SyllabusTopic  @relation(fields: [topicId], references: [id])
+  testQuestions TestQuestion[]
+  userQuestions UserQuestion[]
+
+  @@index([topicId])
+}
+
+// Mock Tests
+model Test {
+  id        String   @id @default(uuid())
+  userId    String
+  subject   String
+  topics    String   // JSON array of topic IDs
+  mode      String   // 'PrintablePDF' | 'InAppExam'
+  status    String   @default("Generated") // 'Generated' | 'InProgress' | 'Submitted'
+  createdAt DateTime @default(now())
+
+  user               User                @relation(fields: [userId], references: [id])
+  testQuestions      TestQuestion[]
+  testSessions       TestSession[]
+  evaluations        Evaluation[]
+  performanceReports PerformanceReport[]
+
+  @@index([userId, createdAt])
+  @@index([status])
+}
+
+// Junction table for Test-Question relationship (maintains order)
+model TestQuestion {
+  id         String @id @default(uuid())
+  testId     String
+  questionId String
+  order      Int
+
+  test     Test     @relation(fields: [testId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id])
+
+  @@unique([testId, questionId])
+  @@index([testId, order])
+}
+
+// Test Sessions (for in-app exams)
+model TestSession {
+  id          String    @id @default(uuid())
+  testId      String
+  userId      String
+  startedAt   DateTime  @default(now())
+  submittedAt DateTime?
+  status      String    @default("InProgress") // 'InProgress' | 'Submitted'
+
+  test      Test           @relation(fields: [testId], references: [id])
+  user      User           @relation(fields: [userId], references: [id])
+  responses UserResponse[]
+
+  @@index([testId])
+  @@index([userId])
+  @@index([status])
+}
+
+// User Responses during test
+model UserResponse {
+  id            String   @id @default(uuid())
+  sessionId     String
+  questionId    String
+  userAnswer    String
+  answeredAt    DateTime @default(now())
+
+  session TestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, questionId])
+  @@index([sessionId])
+}
+
+// Test Evaluations
+model Evaluation {
+  id            String   @id @default(uuid())
+  testId        String   @unique
+  userId        String
+  overallScore  Float    // percentage
+  correctCount  Int
+  totalCount    Int
+  topicScores   String   // JSON array of TopicScore objects
+  evaluatedAt   DateTime @default(now())
+
+  test               Test                @relation(fields: [testId], references: [id])
+  user               User                @relation(fields: [userId], references: [id])
+  performanceReports PerformanceReport[]
+
+  @@index([userId, evaluatedAt])
+}
+
+// Performance Reports
+model PerformanceReport {
+  id                     String   @id @default(uuid())
+  testId                 String   @unique
+  userId                 String
+  evaluationId           String
+  weakTopics             String   // JSON array of WeakTopic objects
+  improvementSuggestions String   // JSON array of ImprovementSuggestion objects
+  createdAt              DateTime @default(now())
+
+  test       Test       @relation(fields: [testId], references: [id])
+  user       User       @relation(fields: [userId], references: [id])
+  evaluation Evaluation @relation(fields: [evaluationId], references: [id])
+
+  @@index([userId, createdAt])
+}
+
+// Track which questions each user has seen
+model UserQuestion {
+  id         String   @id @default(uuid())
+  userId     String
+  questionId String
+  seenAt     DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id])
+  question Question @relation(fields: [questionId], references: [id])
+
+  @@unique([userId, questionId])
+  @@index([userId])
+}

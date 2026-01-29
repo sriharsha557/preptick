@@ -1,0 +1,393 @@
+.sample-paper-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: #ffffff;
+}
+
+.sample-main {
+  flex: 1;
+  padding: 4rem 0;
+  background-color: #fafafa;
+}
+
+.sample-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+.sample-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.sample-title {
+  font-size: 3rem;
+  font-weight: 700;
+  color: #333333;
+  margin-bottom: 1rem;
+}
+
+.title-underline {
+  width: 80px;
+  height: 4px;
+  background: linear-gradient(90deg, #64B5F6, #FF9E80);
+  margin: 0 auto;
+  border-radius: 2px;
+  margin-bottom: 1rem;
+}
+
+.sample-subtitle {
+  font-size: 1.15rem;
+  color: #666666;
+  line-height: 1.6;
+}
+
+.sample-content {
+  display: flex;
+  flex-direction: column;
+  gap: 3rem;
+}
+
+.sample-card {
+  background-color: #ffffff;
+  border-radius: 16px;
+  padding: 3rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  position: relative;
+}
+
+.sample-badge {
+  position: absolute;
+  top: 2rem;
+  right: 2rem;
+  background: linear-gradient(135deg, #64B5F6 0%, #42A5F5 100%);
+  color: #ffffff;
+  padding: 0.5rem 1.25rem;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.sample-info {
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+
+.sample-icon {
+  font-size: 5rem;
+  margin-bottom: 1rem;
+}
+
+.sample-name {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #333333;
+  margin-bottom: 1rem;
+}
+
+.sample-description {
+  font-size: 1.05rem;
+  color: #666666;
+  line-height: 1.7;
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.sample-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  padding: 2rem;
+  background-color: #fafafa;
+  border-radius: 12px;
+  margin-bottom: 2.5rem;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.detail-label {
+  font-size: 0.9rem;
+  color: #999999;
+  font-weight: 500;
+}
+
+.detail-value {
+  font-size: 1.1rem;
+  color: #333333;
+  font-weight: 600;
+}
+
+.sample-features {
+  margin-bottom: 2.5rem;
+}
+
+.features-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #333333;
+  margin-bottom: 1.5rem;
+}
+
+.features-list {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
+.features-list li {
+  font-size: 1.05rem;
+  color: #555555;
+  padding: 0.75rem 0;
+  line-height: 1.6;
+}
+
+.sample-actions {
+  display: flex;
+  gap: 1.5rem;
+  justify-content: center;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
+.download-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  background-color: #64B5F6;
+  color: #ffffff;
+  padding: 1.25rem 2.5rem;
+  border-radius: 8px;
+  border: none;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(100, 181, 246, 0.3);
+}
+
+.download-button:hover {
+  background-color: #42A5F5;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(100, 181, 246, 0.4);
+}
+
+.button-icon {
+  font-size: 1.25rem;
+}
+
+.register-button {
+  display: inline-block;
+  background-color: transparent;
+  color: #64B5F6;
+  padding: 1.25rem 2.5rem;
+  border-radius: 8px;
+  border: 2px solid #64B5F6;
+  text-decoration: none;
+  font-size: 1.1rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.register-button:hover {
+  background-color: #64B5F6;
+  color: #ffffff;
+  transform: translateY(-2px);
+}
+
+.sample-note {
+  padding: 1.5rem;
+  background-color: #e3f2fd;
+  border-left: 4px solid #64B5F6;
+  border-radius: 8px;
+}
+
+.note-text {
+  font-size: 0.95rem;
+  color: #555555;
+  line-height: 1.7;
+  margin: 0;
+}
+
+.note-text strong {
+  color: #333333;
+  font-weight: 600;
+}
+
+.why-preptick-section {
+  background-color: #ffffff;
+  border-radius: 16px;
+  padding: 3rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.section-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #333333;
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+
+.benefits-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 2rem;
+}
+
+.benefit-card {
+  text-align: center;
+  padding: 1.5rem;
+}
+
+.benefit-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.benefit-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #333333;
+  margin-bottom: 0.75rem;
+}
+
+.benefit-text {
+  font-size: 0.95rem;
+  color: #666666;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.cta-section {
+  background: linear-gradient(135deg, #64B5F6 0%, #42A5F5 100%);
+  border-radius: 16px;
+  padding: 3rem;
+  text-align: center;
+  box-shadow: 0 4px 20px rgba(100, 181, 246, 0.3);
+}
+
+.cta-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 1rem;
+}
+
+.cta-text {
+  font-size: 1.1rem;
+  color: #ffffff;
+  line-height: 1.7;
+  margin-bottom: 2rem;
+  max-width: 700px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.cta-button {
+  display: inline-block;
+  background-color: #ffffff;
+  color: #64B5F6;
+  padding: 1.25rem 3rem;
+  border-radius: 8px;
+  text-decoration: none;
+  font-size: 1.25rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.cta-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+@media (max-width: 768px) {
+  .sample-title {
+    font-size: 2.5rem;
+  }
+
+  .sample-subtitle {
+    font-size: 1rem;
+  }
+
+  .sample-card {
+    padding: 2rem;
+  }
+
+  .sample-badge {
+    top: 1rem;
+    right: 1rem;
+    font-size: 0.8rem;
+    padding: 0.4rem 1rem;
+  }
+
+  .sample-name {
+    font-size: 1.75rem;
+  }
+
+  .sample-details {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .features-list {
+    grid-template-columns: 1fr;
+  }
+
+  .sample-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .download-button,
+  .register-button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .benefits-grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .why-preptick-section,
+  .cta-section {
+    padding: 2rem;
+  }
+
+  .section-title,
+  .cta-title {
+    font-size: 1.75rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .sample-main {
+    padding: 2rem 0;
+  }
+
+  .sample-title {
+    font-size: 2rem;
+  }
+
+  .sample-card {
+    padding: 1.5rem;
+  }
+
+  .sample-icon {
+    font-size: 4rem;
+  }
+
+  .cta-button {
+    padding: 1rem 2rem;
+    font-size: 1.1rem;
+  }
+}
