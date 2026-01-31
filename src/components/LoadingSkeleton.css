@@ -1,0 +1,131 @@
+/* Skeleton base styles */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-background-tertiary) 25%,
+    var(--color-border-light) 50%,
+    var(--color-background-tertiary) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Skeleton text */
+.skeleton-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.skeleton-line {
+  margin-bottom: var(--spacing-xs);
+}
+
+/* Skeleton card */
+.skeleton-card {
+  background: var(--color-background);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.skeleton-title {
+  margin-bottom: var(--spacing-sm);
+}
+
+/* Dashboard skeleton */
+.dashboard-skeleton {
+  padding: var(--spacing-xl);
+  animation: fadeIn var(--transition-normal);
+}
+
+.dashboard-skeleton-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-2xl);
+}
+
+.dashboard-skeleton-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.dashboard-skeleton-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: var(--spacing-lg);
+}
+
+/* Topics grid skeleton */
+.topics-grid-skeleton {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--spacing-md);
+  padding: var(--spacing-md) 0;
+}
+
+/* Test results skeleton */
+.test-results-skeleton {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-xl);
+  padding: var(--spacing-2xl);
+}
+
+.test-results-skeleton-score {
+  display: flex;
+  justify-content: center;
+}
+
+.test-results-skeleton-details {
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+/* Spinner */
+.spinner {
+  border: 3px solid;
+  border-radius: var(--radius-full);
+  animation: spin 0.8s linear infinite;
+}
+
+/* Page loading */
+.page-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+  gap: var(--spacing-lg);
+  animation: fadeIn var(--transition-normal);
+}
+
+.page-loading-text {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-lg);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .dashboard-skeleton-header {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .dashboard-skeleton-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .topics-grid-skeleton {
+    grid-template-columns: 1fr;
+  }
+}
