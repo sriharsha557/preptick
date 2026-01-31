@@ -10,9 +10,15 @@ import { PerformanceHistoryService } from '../services/performanceHistory';
 import { RAGRetrieverImpl } from '../services/ragRetriever';
 import { LLMQuestionGeneratorService } from '../services/llmQuestionGenerator';
 import { generatePDF } from '../services/pdfGenerator';
+import { EmbeddingService } from '../services/embedding';
+import { InMemoryVectorStore } from '../services/vectorStore';
 
 // Initialize services
-const ragRetriever = new RAGRetrieverImpl(prisma);
+const embeddingService = process.env.GROQ_API_KEY 
+  ? new EmbeddingService(process.env.GROQ_API_KEY)
+  : new EmbeddingService('dummy-key'); // Fallback for when GROQ is not available
+const vectorStore = new InMemoryVectorStore();
+const ragRetriever = new RAGRetrieverImpl(prisma, embeddingService, vectorStore);
 const llmGenerator = process.env.GROQ_API_KEY 
   ? new LLMQuestionGeneratorService(process.env.GROQ_API_KEY)
   : undefined;

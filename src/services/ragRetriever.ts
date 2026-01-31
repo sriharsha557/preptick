@@ -98,9 +98,60 @@ export class RAGRetrieverImpl implements RAGRetriever {
   }
 
   /**
+   * Check if a topic ID is LLM-generated (dynamically created, not in database)
+   */
+  private isLLMGeneratedTopic(topicId: TopicId): boolean {
+    return topicId.startsWith('llm-');
+  }
+
+  /**
+   * Parse topic information from LLM-generated topic ID
+   * Format: llm-{curriculum}-{grade}-{subject}-{index}
+   * Example: llm-cbse-10-mathematics-0
+   */
+  private parseLLMTopicId(topicId: TopicId): { curriculum: string; grade: number; subject: string; topicName: string } {
+    // Remove 'llm-' prefix and split
+    const parts = topicId.substring(4).split('-');
+
+    // Format: curriculum-grade-subject-index (subject may have multiple dashes)
+    if (parts.length < 4) {
+      throw new Error(`Invalid LLM topic ID format: ${topicId}`);
+    }
+
+    const curriculum = parts[0].toUpperCase();
+    const grade = parseInt(parts[1], 10);
+    // Subject could span multiple parts (e.g., "social-studies")
+    // Last part is the index, everything between grade and index is subject
+    const index = parts[parts.length - 1];
+    const subject = parts.slice(2, -1).join(' ');
+
+    // Create a readable topic name from the subject and index
+    const topicName = `${subject.charAt(0).toUpperCase() + subject.slice(1)} Topic ${parseInt(index, 10) + 1}`;
+
+    return { curriculum, grade, subject, topicName };
+  }
+
+  /**
    * Get syllabus context for a topic
+   * Handles both database topics and LLM-generated topics
    */
   async getSyllabusContext(topicId: TopicId): Promise<SyllabusContext> {
+    // Handle LLM-generated topics
+    if (this.isLLMGeneratedTopic(topicId)) {
+      const { curriculum, grade, subject, topicName } = this.parseLLMTopicId(topicId);
+
+      return {
+        topicId,
+        content: `${curriculum} Class ${grade} ${subject}: ${topicName}. Generate exam-realistic questions for this topic following the official ${curriculum} curriculum standards.`,
+        relatedConcepts: [
+          `${curriculum} curriculum standards`,
+          `Class ${grade} level difficulty`,
+          `${subject} fundamentals`,
+        ],
+      };
+    }
+
+    // Handle database topics
     const topic = await this.prisma.syllabusTopic.findUnique({
       where: { id: topicId },
     });

@@ -78,7 +78,15 @@ export class TestGeneratorService {
   }
 
   /**
+   * Check if a topic ID is LLM-generated (dynamically created, not in database)
+   */
+  private isLLMGeneratedTopic(topicId: TopicId): boolean {
+    return topicId.startsWith('llm-');
+  }
+
+  /**
    * Validate that all topics exist in the syllabus
+   * LLM-generated topics (starting with "llm-") are considered valid without database lookup
    */
   private async validateTopics(
     topics: TopicId[]
@@ -90,24 +98,32 @@ export class TestGeneratorService {
       });
     }
 
-    const existingTopics = await this.prisma.syllabusTopic.findMany({
-      where: {
-        id: {
-          in: topics,
+    // Separate LLM-generated topics from database topics
+    const llmTopics = topics.filter(id => this.isLLMGeneratedTopic(id));
+    const dbTopics = topics.filter(id => !this.isLLMGeneratedTopic(id));
+
+    // LLM-generated topics are always valid - they were created by the syllabus API
+    // Only validate database topics
+    if (dbTopics.length > 0) {
+      const existingTopics = await this.prisma.syllabusTopic.findMany({
+        where: {
+          id: {
+            in: dbTopics,
+          },
         },
-      },
-      select: { id: true },
-    });
-
-    const existingIds = new Set(existingTopics.map(t => t.id));
-    const missingTopics = topics.filter(id => !existingIds.has(id));
-
-    if (missingTopics.length > 0) {
-      return Err({
-        type: 'InvalidTopics',
-        invalidTopics: missingTopics,
-        message: `Topics not found in syllabus: ${missingTopics.join(', ')}`,
+        select: { id: true },
       });
+
+      const existingIds = new Set(existingTopics.map(t => t.id));
+      const missingTopics = dbTopics.filter(id => !existingIds.has(id));
+
+      if (missingTopics.length > 0) {
+        return Err({
+          type: 'InvalidTopics',
+          invalidTopics: missingTopics,
+          message: `Topics not found in syllabus: ${missingTopics.join(', ')}`,
+        });
+      }
     }
 
     return Ok(undefined);
