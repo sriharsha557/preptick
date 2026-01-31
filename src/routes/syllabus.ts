@@ -83,7 +83,9 @@ export async function syllabusRoutes(fastify: FastifyInstance) {
       // Try LLM first for dynamic topic generation
       if (groq) {
         try {
+          fastify.log.info(`Attempting LLM topic generation for ${curriculum} Grade ${gradeNum} ${subject}`);
           const llmTopics = await generateTopicsWithLLM(curriculum, gradeNum, subject);
+          fastify.log.info(`LLM generated ${llmTopics.length} topics successfully`);
           return reply.send({
             curriculum,
             grade: gradeNum,
@@ -92,8 +94,10 @@ export async function syllabusRoutes(fastify: FastifyInstance) {
             source: 'llm',
           });
         } catch (llmError) {
-          fastify.log.warn('LLM topic generation failed, falling back to database:', llmError);
+          fastify.log.error('LLM topic generation failed, falling back to database:', llmError);
         }
+      } else {
+        fastify.log.warn('GROQ API key not configured - LLM topic generation unavailable');
       }
 
       // Fallback to database

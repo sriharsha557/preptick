@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
+import { apiGet, apiPost, getApiUrl, ApiError } from '../lib/api';
 import './GenerateTestPage.css';
 
 interface Topic {
@@ -32,48 +33,37 @@ const GenerateTestPage: React.FC = () => {
 
   const loadTopics = async (curriculum: string, grade: number, subject: string) => {
     try {
-      const response = await fetch(`/api/syllabus/${curriculum}/${grade}/${subject}/topics`);
-      
-      if (response.ok) {
-        const data = await response.json();
-        const loadedTopics = data.topics.map((t: any) => ({
-          id: t.topicId,
-          name: t.topicName,
-        }));
-        setTopics(loadedTopics);
+      setError(''); // Clear previous errors
+      const data = await apiGet<{ 
+        topics: Array<{ topicId: string; topicName: string }>;
+        source?: string;
+      }>(
+        `/api/syllabus/${curriculum}/${grade}/${subject}/topics`
+      );
+
+      const loadedTopics = data.topics.map((t) => ({
+        id: t.topicId,
+        name: t.topicName,
+      }));
+      setTopics(loadedTopics);
+
+      // If no topics found, show a helpful message
+      if (loadedTopics.length === 0) {
+        console.warn('No topics found for this subject/grade combination');
+        setError('No topics available for this combination. Please try another subject or contact support.');
       } else {
-        // Fallback to mock topics if API fails
-        console.warn('Failed to load topics from API, using mock data');
-        useMockTopics(subject);
+        console.log(`Loaded ${loadedTopics.length} topics from ${data.source || 'unknown'} source`);
       }
     } catch (error) {
       console.error('Error loading topics:', error);
-      // Fallback to mock topics
-      useMockTopics(subject);
+      // Show detailed error message
+      if (error instanceof Error) {
+        setError(`Failed to load topics: ${error.message}. Please check your connection or try again later.`);
+      } else {
+        setError('Failed to load topics. Please check if the backend is running and try again.');
+      }
+      setTopics([]);
     }
-  };
-
-  const useMockTopics = (subject: string) => {
-    const mockTopics: Record<string, Topic[]> = {
-      Mathematics: [
-        { id: 'math-algebra', name: 'Algebra' },
-        { id: 'math-geometry', name: 'Geometry' },
-        { id: 'math-trigonometry', name: 'Trigonometry' },
-        { id: 'math-calculus', name: 'Calculus' },
-      ],
-      Science: [
-        { id: 'sci-physics', name: 'Physics' },
-        { id: 'sci-chemistry', name: 'Chemistry' },
-        { id: 'sci-biology', name: 'Biology' },
-      ],
-      English: [
-        { id: 'eng-grammar', name: 'Grammar' },
-        { id: 'eng-literature', name: 'Literature' },
-        { id: 'eng-writing', name: 'Writing' },
-      ],
-    };
-
-    setTopics(mockTopics[subject] || []);
   };
 
   const handleSubjectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -123,41 +113,39 @@ const GenerateTestPage: React.FC = () => {
         return;
       }
 
-      // Generate test
-      const response = await fetch('/api/tests/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      // Generate test using API utility
+      const data = await apiPost<{ success: boolean; tests: Array<{ testId: string }> }>(
+        '/api/tests/generate',
+        {
           userId,
           subject: formData.subject,
           topics: formData.selectedTopics,
           questionCount: formData.questionCount,
           testCount: 1,
           testMode: formData.testMode,
-        }),
-      });
+        }
+      );
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to generate test');
-      }
-
-      const data = await response.json();
       const testId = data.tests[0].testId;
 
       // If PDF mode, download the PDF
       if (formData.testMode === 'PDFDownload') {
-        window.open(`/api/tests/${testId}/pdf?includeAnswers=true`, '_blank');
+        // Use getApiUrl to get the correct PDF URL
+        const pdfUrl = getApiUrl(`/api/tests/${testId}/pdf?includeAnswers=true`);
+        window.open(pdfUrl, '_blank');
         navigate('/dashboard');
       } else {
         // Navigate to test execution page for online exam
         navigate(`/test/${testId}`);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to generate test');
       console.error('Generate test error:', err);
+      if (err instanceof ApiError) {
+        // Show more detailed error message
+        setError(err.message || 'Failed to generate test');
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to generate test');
+      }
     } finally {
       setLoading(false);
     }

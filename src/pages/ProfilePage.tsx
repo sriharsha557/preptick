@@ -141,8 +141,12 @@ const ProfilePage: React.FC = () => {
       });
 
       console.log('Profile update result:', result);
-      setSuccess('Profile updated successfully!');
-      setTimeout(() => setSuccess(''), 3000);
+      setSuccess('Profile updated successfully! Redirecting...');
+
+      // Redirect to dashboard after a brief delay
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 1500);
     } catch (err) {
       console.error('Profile update error:', err);
       if (err instanceof ApiError) {
