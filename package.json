@@ -1,6 +1,7 @@
 {
   "name": "mockprep",
   "version": "1.0.0",
+  "type": "module",
   "description": "Exam preparation platform for CBSE and Cambridge students",
   "main": "dist/index.js",
   "scripts": {
@@ -40,6 +41,7 @@
     "axios": "^1.13.4",
     "bcrypt": "^5.1.1",
     "fastify": "^4.25.2",
+    "groq-sdk": "^0.37.0",
     "pdf-parse": "^2.4.5",
     "pdfkit": "^0.14.0",
     "react": "^19.2.4",

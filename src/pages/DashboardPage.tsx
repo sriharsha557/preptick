@@ -7,6 +7,12 @@ import './DashboardPage.css';
 interface UserProfile {
   userId: string;
   email: string;
+  name?: string;
+  gender?: string;
+  schoolName?: string;
+  city?: string;
+  country?: string;
+  profilePicture?: string;
   curriculum: string;
   grade: number;
   subjects: string[];
@@ -20,40 +26,80 @@ const DashboardPage: React.FC = () => {
   useEffect(() => {
     const token = localStorage.getItem('token');
     const userId = localStorage.getItem('userId');
+    const userEmail = localStorage.getItem('userEmail');
+
+    console.log('Dashboard - Checking auth:', { token: !!token, userId, userEmail });
 
     if (!token || !userId) {
+      console.log('No token or userId, redirecting to login');
       navigate('/login');
       return;
     }
 
-    fetchProfile(userId, token);
+    fetchProfile(userId, userEmail || '');
   }, [navigate]);
 
-  const fetchProfile = async (userId: string, token: string) => {
+  const fetchProfile = async (userId: string, email: string) => {
     try {
-      const response = await fetch(`/api/auth/profile/${userId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
+      console.log('Fetching profile for:', userId, email);
+      
+      // Fetch profile from API
+      const response = await fetch(`/api/users/${userId}/profile`);
+      
       if (response.ok) {
         const data = await response.json();
-        setProfile(data);
+        const profileData: UserProfile = {
+          userId: data.id,
+          email: data.email,
+          name: data.name,
+          gender: data.gender,
+          schoolName: data.schoolName,
+          city: data.city,
+          country: data.country,
+          profilePicture: data.profilePicture,
+          curriculum: data.curriculum,
+          grade: data.grade,
+          subjects: data.subjects ? JSON.parse(data.subjects) : []
+        };
+        
+        setProfile(profileData);
+        console.log('Profile loaded:', profileData);
       } else {
-        navigate('/login');
+        // Fallback to localStorage data
+        const storedEmail = localStorage.getItem('userEmail');
+        const mockProfile: UserProfile = {
+          userId: userId,
+          email: storedEmail || email,
+          curriculum: 'CBSE',
+          grade: 10,
+          subjects: ['Mathematics', 'Science', 'English']
+        };
+        setProfile(mockProfile);
       }
+      
+      setLoading(false);
     } catch (err) {
       console.error('Failed to fetch profile:', err);
-      navigate('/login');
-    } finally {
+      // Fallback to localStorage data
+      const storedEmail = localStorage.getItem('userEmail');
+      const mockProfile: UserProfile = {
+        userId: userId,
+        email: storedEmail || email,
+        curriculum: 'CBSE',
+        grade: 10,
+        subjects: ['Mathematics', 'Science', 'English']
+      };
+      setProfile(mockProfile);
       setLoading(false);
     }
   };
 
   const handleLogout = () => {
+    console.log('Logging out...');
     localStorage.removeItem('token');
     localStorage.removeItem('userId');
+    localStorage.removeItem('userEmail');
+    localStorage.removeItem('supabase_session');
     navigate('/');
   };
 
@@ -82,19 +128,56 @@ const DashboardPage: React.FC = () => {
           
           {profile && (
             <div className="profile-card">
-              <h2 className="profile-title">Your Profile</h2>
-              <div className="profile-info">
-                <div className="info-item">
-                  <span className="info-label">Email:</span>
-                  <span className="info-value">{profile.email}</span>
+              <div className="profile-header">
+                <div className="profile-avatar">
+                  {profile.profilePicture ? (
+                    <img src={profile.profilePicture} alt="Profile" />
+                  ) : (
+                    <div className="avatar-placeholder">
+                      {profile.name ? profile.name[0].toUpperCase() : profile.email[0].toUpperCase()}
+                    </div>
+                  )}
                 </div>
+                <div className="profile-details">
+                  <h2 className="profile-name">{profile.name || 'Student'}</h2>
+                  <p className="profile-email">{profile.email}</p>
+                </div>
+                <button 
+                  className="edit-profile-button"
+                  onClick={() => navigate('/profile')}
+                >
+                  Edit Profile
+                </button>
+              </div>
+              
+              <div className="profile-info">
+                {profile.gender && (
+                  <div className="info-item">
+                    <span className="info-label">Gender:</span>
+                    <span className="info-value">{profile.gender}</span>
+                  </div>
+                )}
+                {profile.schoolName && (
+                  <div className="info-item">
+                    <span className="info-label">School:</span>
+                    <span className="info-value">{profile.schoolName}</span>
+                  </div>
+                )}
+                {(profile.city || profile.country) && (
+                  <div className="info-item">
+                    <span className="info-label">Location:</span>
+                    <span className="info-value">
+                      {[profile.city, profile.country].filter(Boolean).join(', ')}
+                    </span>
+                  </div>
+                )}
                 <div className="info-item">
                   <span className="info-label">Curriculum:</span>
                   <span className="info-value">{profile.curriculum}</span>
                 </div>
                 <div className="info-item">
                   <span className="info-label">Grade:</span>
-                  <span className="info-value">{profile.grade}</span>
+                  <span className="info-value">Class {profile.grade}</span>
                 </div>
                 <div className="info-item">
                   <span className="info-label">Subjects:</span>
@@ -108,13 +191,23 @@ const DashboardPage: React.FC = () => {
             <div className="feature-card">
               <h3 className="feature-title">Generate Mock Test</h3>
               <p className="feature-description">Create customized mock tests based on your syllabus</p>
-              <button className="feature-button">Coming Soon</button>
+              <button 
+                className="feature-button"
+                onClick={() => navigate('/generate-test')}
+              >
+                Generate Test
+              </button>
             </div>
             
             <div className="feature-card">
               <h3 className="feature-title">View Test History</h3>
               <p className="feature-description">Track your performance and progress over time</p>
-              <button className="feature-button">Coming Soon</button>
+              <button 
+                className="feature-button"
+                onClick={() => navigate('/history')}
+              >
+                View History
+              </button>
             </div>
             
             <div className="feature-card">

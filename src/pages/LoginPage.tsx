@@ -27,6 +27,8 @@ const LoginPage: React.FC = () => {
     setLoading(true);
 
     try {
+      console.log('Attempting login with:', formData.email);
+      
       // Login with Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: formData.email,
@@ -34,35 +36,41 @@ const LoginPage: React.FC = () => {
       });
 
       if (authError) {
-        setError(authError.message);
+        console.error('Supabase auth error:', authError);
+        
+        // Provide user-friendly error messages
+        let errorMessage = authError.message;
+        if (authError.message.includes('Invalid login credentials')) {
+          errorMessage = 'Invalid email or password. Please check your credentials.';
+        } else if (authError.message.includes('Email not confirmed')) {
+          errorMessage = 'Please verify your email address. Check your inbox for a confirmation link.';
+        } else if (authError.message.includes('Email link is invalid')) {
+          errorMessage = 'Email confirmation link is invalid or expired.';
+        }
+        
+        setError(errorMessage);
         return;
       }
 
       if (authData.session) {
-        // Store session
-        localStorage.setItem('supabase_session', JSON.stringify(authData.session));
-        localStorage.setItem('userId', authData.user.id);
+        console.log('Login successful! User ID:', authData.user.id);
         
-        // Also login to our backend
-        const response = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(formData),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          localStorage.setItem('token', data.token);
-          navigate('/dashboard');
-        } else {
-          // Even if backend login fails, Supabase auth succeeded
-          navigate('/dashboard');
-        }
+        // Store session and token
+        localStorage.setItem('supabase_session', JSON.stringify(authData.session));
+        localStorage.setItem('token', authData.session.access_token);
+        localStorage.setItem('userId', authData.user.id);
+        localStorage.setItem('userEmail', authData.user.email || '');
+        
+        console.log('Navigating to dashboard...');
+        
+        // Navigate to dashboard
+        navigate('/dashboard');
+      } else {
+        setError('Login failed. No session returned.');
+        console.error('No session returned from Supabase');
       }
     } catch (err) {
-      setError('Network error. Please try again.');
+      setError('Network error. Please check your internet connection and try again.');
       console.error('Login error:', err);
     } finally {
       setLoading(false);

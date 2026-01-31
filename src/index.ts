@@ -3,6 +3,7 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { prisma } from './lib/db';
+import { authRoutes } from './routes/auth';
 
 const fastify = Fastify({
   logger: true,
@@ -12,6 +13,21 @@ const fastify = Fastify({
 fastify.register(cors, {
   origin: true,
 });
+
+// Register routes
+fastify.register(authRoutes);
+
+// Import and register test routes
+import { testRoutes } from './routes/tests';
+fastify.register(testRoutes);
+
+// Import and register syllabus routes
+import { syllabusRoutes } from './routes/syllabus';
+fastify.register(syllabusRoutes);
+
+// Import and register user routes
+import { userRoutes } from './routes/users';
+fastify.register(userRoutes);
 
 // Health check endpoint
 fastify.get('/health', async () => {

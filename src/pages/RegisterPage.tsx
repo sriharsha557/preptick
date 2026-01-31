@@ -66,28 +66,29 @@ const RegisterPage: React.FC = () => {
       }
 
       if (authData.user) {
-        // Also create user profile in our database
-        const response = await fetch('/api/auth/register', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            email: formData.email,
-            password: formData.password,
-            curriculum: formData.curriculum,
-            grade: parseInt(formData.grade),
-            subjects: formData.subjects,
-          }),
-        });
+        // Create user profile in Supabase database
+        const { error: profileError } = await supabase
+          .from('User')
+          .insert([
+            {
+              id: authData.user.id,
+              email: formData.email,
+              passwordHash: '', // Managed by Supabase Auth
+              curriculum: formData.curriculum,
+              grade: parseInt(formData.grade),
+              subjects: JSON.stringify(formData.subjects),
+              createdAt: new Date().toISOString(),
+              lastLogin: new Date().toISOString(),
+            }
+          ]);
 
-        if (response.ok) {
-          alert('Registration successful! Please check your email to verify your account.');
-          navigate('/login');
-        } else {
-          const data = await response.json();
-          setError(data.message || 'Failed to create user profile');
+        if (profileError) {
+          setError(profileError.message || 'Failed to create user profile');
+          return;
         }
+
+        alert('Registration successful! Please check your email to verify your account.');
+        navigate('/login');
       }
     } catch (err) {
       setError('Network error. Please try again.');

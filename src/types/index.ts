@@ -114,17 +114,14 @@ export type TestConfiguration = {
   topics: TopicId[];
   questionCount: number;
   testCount: number;
-  mode: TestMode;
+  testMode: TestMode;
 };
 
 export type MockTest = {
   testId: TestId;
-  userId: UserId;
-  subject: Subject;
-  topics: TopicId[];
+  configuration: TestConfiguration;
   questions: Question[];
-  mode: TestMode;
-  status: TestStatus;
+  answerKey: Map<QuestionId, string>;
   createdAt: Timestamp;
 };
 
@@ -285,11 +282,17 @@ export type NotFoundError = {
   id: string;
 };
 
+export type ConfigurationError =
+  | { type: 'InvalidQuestionCount'; value: number; message: string }
+  | { type: 'InvalidTestCount'; value: number; message: string }
+  | { type: 'NoTopicsSelected'; message: string }
+  | { type: 'InvalidTopics'; invalidTopics: TopicId[]; message: string }
+  | { type: 'InsufficientQuestions'; available: number; requested: number; message: string };
+
 export type GenerationError =
-  | { type: 'InsufficientQuestions'; available: number; requested: number }
-  | { type: 'InvalidConfiguration'; reason: string }
-  | { type: 'RAGError'; message: string }
-  | { type: 'LLMError'; message: string };
+  | { type: 'ConfigurationError'; details: ConfigurationError }
+  | { type: 'RetrievalError'; details: RetrievalError }
+  | { type: 'GenerationFailed'; message: string };
 
 export type ConfigError =
   | { type: 'InvalidQuestionCount'; value: number }
@@ -336,16 +339,16 @@ export type IndexError = {
 // ============================================================================
 
 export type Result<T, E> =
-  | { success: true; value: T }
-  | { success: false; error: E };
+  | { ok: true; value: T }
+  | { ok: false; error: E };
 
 // Helper functions for Result type
 export const Ok = <T, E>(value: T): Result<T, E> => ({
-  success: true,
+  ok: true,
   value,
 });
 
 export const Err = <T, E>(error: E): Result<T, E> => ({
-  success: false,
+  ok: false,
   error,
 });

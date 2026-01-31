@@ -8,6 +8,11 @@ import SamplePaperPage from './pages/SamplePaperPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
+import ProfilePage from './pages/ProfilePage';
+import GenerateTestPage from './pages/GenerateTestPage';
+import TakeTestPage from './pages/TakeTestPage';
+import TestResultsPage from './pages/TestResultsPage';
+import TestHistoryPage from './pages/TestHistoryPage';
 import './App.css';
 
 function App() {
@@ -22,6 +27,11 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/generate-test" element={<GenerateTestPage />} />
+        <Route path="/test/:testId" element={<TakeTestPage />} />
+        <Route path="/test/:testId/results" element={<TestResultsPage />} />
+        <Route path="/history" element={<TestHistoryPage />} />
       </Routes>
     </Router>
   );

@@ -74,6 +74,24 @@
   transform: translateY(-2px);
 }
 
+.nav-link-logout {
+  background-color: transparent;
+  border: 2px solid #f44336;
+  color: #f44336 !important;
+  padding: 0.5rem 1.2rem;
+  border-radius: 25px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.nav-link-logout:hover {
+  background-color: #f44336;
+  color: #ffffff !important;
+  transform: translateY(-2px);
+}
+
 @media (max-width: 768px) {
   .header-container {
     flex-direction: column;

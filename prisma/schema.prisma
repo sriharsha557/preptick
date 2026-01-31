@@ -12,14 +12,20 @@ datasource db {
 
 // User Profiles
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  passwordHash String
-  curriculum   String   // 'CBSE' | 'Cambridge'
-  grade        Int      // 1-10
-  subjects     String   // JSON array of subjects
-  createdAt    DateTime @default(now())
-  lastLogin    DateTime @default(now())
+  id             String   @id @default(uuid())
+  email          String   @unique
+  passwordHash   String
+  name           String?  // Student name
+  gender         String?  // 'Male' | 'Female' | 'Other' | 'PreferNotToSay'
+  schoolName     String?  // Optional school name
+  city           String?
+  country        String?
+  profilePicture String?  // URL to profile picture
+  curriculum     String   // 'CBSE' | 'Cambridge'
+  grade          Int      // 1-10
+  subjects       String   // JSON array of subjects
+  createdAt      DateTime @default(now())
+  lastLogin      DateTime @default(now())
 
   tests              Test[]
   testSessions       TestSession[]
@@ -143,14 +149,29 @@ model Evaluation {
   overallScore  Float    // percentage
   correctCount  Int
   totalCount    Int
-  topicScores   String   // JSON array of TopicScore objects
   evaluatedAt   DateTime @default(now())
 
   test               Test                @relation(fields: [testId], references: [id])
   user               User                @relation(fields: [userId], references: [id])
+  topicScores        EvaluationTopicScore[]
   performanceReports PerformanceReport[]
 
   @@index([userId, evaluatedAt])
+}
+
+// Topic Scores within an Evaluation
+model EvaluationTopicScore {
+  id           String @id @default(uuid())
+  evaluationId String
+  topicId      String
+  topicName    String
+  correct      Int
+  total        Int
+  percentage   Float
+
+  evaluation Evaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+
+  @@index([evaluationId])
 }
 
 // Performance Reports
