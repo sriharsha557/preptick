@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
+import { apiRequest } from '../lib/api';
 import './ProfilePage.css';
 
 interface ProfileData {
@@ -47,7 +48,7 @@ const ProfilePage: React.FC = () => {
         return;
       }
 
-      const response = await fetch(`/api/users/${userId}/profile`);
+      const response = await apiRequest(`/api/users/${userId}/profile`);
       if (response.ok) {
         const data = await response.json();
         setProfileData({
@@ -114,7 +115,7 @@ const ProfilePage: React.FC = () => {
         return;
       }
 
-      const response = await fetch(`/api/users/${userId}/profile`, {
+      const response = await apiRequest(`/api/users/${userId}/profile`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
