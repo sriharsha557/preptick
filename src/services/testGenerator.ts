@@ -436,8 +436,18 @@ export class TestGeneratorService {
     // First, persist questions to the database
     for (const question of questions) {
       try {
-        await this.prisma.question.create({
-          data: {
+        // Use upsert to handle cases where question might already exist
+        await this.prisma.question.upsert({
+          where: { id: question.questionId },
+          update: {
+            // Update if exists (shouldn't happen with unique IDs, but just in case)
+            questionText: question.questionText,
+            questionType: question.questionType,
+            options: question.options ? JSON.stringify(question.options) : null,
+            correctAnswer: question.correctAnswer,
+            syllabusReference: question.syllabusReference,
+          },
+          create: {
             id: question.questionId,
             topicId: question.topicId,
             questionText: question.questionText,
@@ -452,8 +462,9 @@ export class TestGeneratorService {
         // Index in RAG vector store for future retrieval
         await this.ragRetriever.indexQuestion(question);
       } catch (error) {
-        // Log error but don't fail the test generation
+        // Log error and rethrow - we need questions to be saved for test generation to work
         console.error(`Failed to index question ${question.questionId}:`, error);
+        throw new Error(`Failed to save question to database: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
   }
