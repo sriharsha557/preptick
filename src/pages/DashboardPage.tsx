@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
+import { apiGet } from '../lib/api';
 import './DashboardPage.css';
 
 interface UserProfile {
@@ -42,45 +43,42 @@ const DashboardPage: React.FC = () => {
   const fetchProfile = async (userId: string, email: string) => {
     try {
       console.log('Fetching profile for:', userId, email);
-      
-      // Fetch profile from API
-      const response = await fetch(`/api/users/${userId}/profile`);
-      
-      if (response.ok) {
-        const data = await response.json();
-        const profileData: UserProfile = {
-          userId: data.id,
-          email: data.email,
-          name: data.name,
-          gender: data.gender,
-          schoolName: data.schoolName,
-          city: data.city,
-          country: data.country,
-          profilePicture: data.profilePicture,
-          curriculum: data.curriculum,
-          grade: data.grade,
-          subjects: data.subjects ? JSON.parse(data.subjects) : []
-        };
-        
-        setProfile(profileData);
-        console.log('Profile loaded:', profileData);
-      } else {
-        // Fallback to localStorage data
-        const storedEmail = localStorage.getItem('userEmail');
-        const mockProfile: UserProfile = {
-          userId: userId,
-          email: storedEmail || email,
-          curriculum: 'CBSE',
-          grade: 10,
-          subjects: ['Mathematics', 'Science', 'English']
-        };
-        setProfile(mockProfile);
-      }
-      
+
+      // Fetch profile from API using the authenticated API utility
+      const data = await apiGet<{
+        id: string;
+        email: string;
+        name?: string;
+        gender?: string;
+        schoolName?: string;
+        city?: string;
+        country?: string;
+        profilePicture?: string;
+        curriculum: string;
+        grade: number;
+        subjects?: string;
+      }>(`/api/users/${userId}/profile`);
+
+      const profileData: UserProfile = {
+        userId: data.id,
+        email: data.email,
+        name: data.name,
+        gender: data.gender,
+        schoolName: data.schoolName,
+        city: data.city,
+        country: data.country,
+        profilePicture: data.profilePicture,
+        curriculum: data.curriculum,
+        grade: data.grade,
+        subjects: data.subjects ? JSON.parse(data.subjects) : []
+      };
+
+      setProfile(profileData);
+      console.log('Profile loaded:', profileData);
       setLoading(false);
     } catch (err) {
       console.error('Failed to fetch profile:', err);
-      // Fallback to localStorage data
+      // Fallback to localStorage data on error
       const storedEmail = localStorage.getItem('userEmail');
       const mockProfile: UserProfile = {
         userId: userId,

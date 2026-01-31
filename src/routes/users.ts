@@ -2,6 +2,7 @@
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { prisma } from '../lib/db';
+import { authenticate, verifyOwnership } from '../middleware/auth';
 
 interface UpdateProfileBody {
   name?: string;
@@ -16,13 +17,26 @@ interface UpdateProfileBody {
 }
 
 export async function userRoutes(fastify: FastifyInstance) {
-  // Get user profile
-  fastify.get('/api/users/:userId/profile', async (
+  // Get user profile - requires authentication
+  fastify.get('/api/users/:userId/profile', {
+    preHandler: [authenticate],
+  }, async (
     request: FastifyRequest<{ Params: { userId: string } }>,
     reply: FastifyReply
   ) => {
     try {
       const { userId } = request.params;
+
+      // Verify user can only access their own profile
+      if (!verifyOwnership(request, userId)) {
+        return reply.status(403).send({
+          success: false,
+          error: {
+            code: 'FORBIDDEN',
+            message: 'You can only access your own profile',
+          },
+        });
+      }
 
       const user = await prisma.user.findUnique({
         where: { id: userId },
@@ -44,9 +58,13 @@ export async function userRoutes(fastify: FastifyInstance) {
       });
 
       if (!user) {
-        return reply.status(404).send({
-          error: 'User not found',
-          message: `User with ID ${userId} not found`,
+        // Return 403 instead of 404 to prevent user enumeration
+        return reply.status(403).send({
+          success: false,
+          error: {
+            code: 'FORBIDDEN',
+            message: 'Access denied',
+          },
         });
       }
 
@@ -54,15 +72,20 @@ export async function userRoutes(fastify: FastifyInstance) {
     } catch (error) {
       fastify.log.error(error);
       return reply.status(500).send({
-        error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Unknown error',
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        },
       });
     }
   });
 
-  // Update user profile
-  fastify.put('/api/users/:userId/profile', async (
-    request: FastifyRequest<{ 
+  // Update user profile - requires authentication
+  fastify.put('/api/users/:userId/profile', {
+    preHandler: [authenticate],
+  }, async (
+    request: FastifyRequest<{
       Params: { userId: string };
       Body: UpdateProfileBody;
     }>,
@@ -72,15 +95,14 @@ export async function userRoutes(fastify: FastifyInstance) {
       const { userId } = request.params;
       const updateData = request.body;
 
-      // Validate user exists
-      const existingUser = await prisma.user.findUnique({
-        where: { id: userId },
-      });
-
-      if (!existingUser) {
-        return reply.status(404).send({
-          error: 'User not found',
-          message: `User with ID ${userId} not found`,
+      // Verify user can only update their own profile
+      if (!verifyOwnership(request, userId)) {
+        return reply.status(403).send({
+          success: false,
+          error: {
+            code: 'FORBIDDEN',
+            message: 'You can only update your own profile',
+          },
         });
       }
 
@@ -121,23 +143,38 @@ export async function userRoutes(fastify: FastifyInstance) {
     } catch (error) {
       fastify.log.error(error);
       return reply.status(500).send({
-        error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Unknown error',
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        },
       });
     }
   });
 
-  // Upload profile picture (placeholder - in production, use cloud storage)
-  fastify.post('/api/users/:userId/profile-picture', async (
+  // Upload profile picture - requires authentication
+  fastify.post('/api/users/:userId/profile-picture', {
+    preHandler: [authenticate],
+  }, async (
     request: FastifyRequest<{ Params: { userId: string } }>,
     reply: FastifyReply
   ) => {
     try {
       const { userId } = request.params;
 
+      // Verify user can only upload their own profile picture
+      if (!verifyOwnership(request, userId)) {
+        return reply.status(403).send({
+          success: false,
+          error: {
+            code: 'FORBIDDEN',
+            message: 'You can only upload your own profile picture',
+          },
+        });
+      }
+
       // In production, handle file upload to S3/Cloudinary/etc.
       // For now, return a placeholder response
-      
       return reply.send({
         success: true,
         message: 'Profile picture upload endpoint - implement cloud storage integration',
@@ -146,8 +183,11 @@ export async function userRoutes(fastify: FastifyInstance) {
     } catch (error) {
       fastify.log.error(error);
       return reply.status(500).send({
-        error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Unknown error',
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        },
       });
     }
   });

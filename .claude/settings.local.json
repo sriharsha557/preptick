@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git config:*)"
+      "Bash(git config:*)",
+      "Bash(xargs:*)",
+      "Bash(npm install:*)",
+      "Bash(timeout 5 npx tsx:*)",
+      "Bash(PORT=3001 timeout 5 npx tsx:*)",
+      "Bash(npm run build:*)",
+      "Bash(PORT=3002 timeout 5 npx tsx:*)"
     ]
   }
 }

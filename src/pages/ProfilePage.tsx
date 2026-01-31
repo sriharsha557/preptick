@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
-import { apiRequest } from '../lib/api';
+import { apiGet, apiPut, ApiError } from '../lib/api';
 import './ProfilePage.css';
 
 interface ProfileData {
@@ -48,24 +48,37 @@ const ProfilePage: React.FC = () => {
         return;
       }
 
-      const response = await apiRequest(`/api/users/${userId}/profile`);
-      if (response.ok) {
-        const data = await response.json();
-        setProfileData({
-          name: data.name || '',
-          email: data.email || '',
-          gender: data.gender || '',
-          schoolName: data.schoolName || '',
-          city: data.city || '',
-          country: data.country || '',
-          profilePicture: data.profilePicture || '',
-          curriculum: data.curriculum || 'CBSE',
-          grade: data.grade || 10,
-          subjects: data.subjects ? JSON.parse(data.subjects) : ['Mathematics', 'Science', 'English'],
-        });
-      }
+      const data = await apiGet<{
+        name?: string;
+        email?: string;
+        gender?: string;
+        schoolName?: string;
+        city?: string;
+        country?: string;
+        profilePicture?: string;
+        curriculum?: string;
+        grade?: number;
+        subjects?: string;
+      }>(`/api/users/${userId}/profile`);
+
+      setProfileData({
+        name: data.name || '',
+        email: data.email || '',
+        gender: data.gender || '',
+        schoolName: data.schoolName || '',
+        city: data.city || '',
+        country: data.country || '',
+        profilePicture: data.profilePicture || '',
+        curriculum: data.curriculum || 'CBSE',
+        grade: data.grade || 10,
+        subjects: data.subjects ? JSON.parse(data.subjects) : ['Mathematics', 'Science', 'English'],
+      });
     } catch (err) {
       console.error('Error loading profile:', err);
+      // If unauthorized, redirect to login
+      if (err instanceof ApiError && err.statusCode === 401) {
+        navigate('/login');
+      }
     }
   };
 
@@ -115,38 +128,32 @@ const ProfilePage: React.FC = () => {
         return;
       }
 
-      const response = await apiRequest(`/api/users/${userId}/profile`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: profileData.name,
-          gender: profileData.gender,
-          schoolName: profileData.schoolName,
-          city: profileData.city,
-          country: profileData.country,
-          profilePicture: profileData.profilePicture,
-          curriculum: profileData.curriculum,
-          grade: profileData.grade,
-          subjects: JSON.stringify(profileData.subjects),
-        }),
+      const result = await apiPut<{ success: boolean; message: string }>(`/api/users/${userId}/profile`, {
+        name: profileData.name,
+        gender: profileData.gender,
+        schoolName: profileData.schoolName,
+        city: profileData.city,
+        country: profileData.country,
+        profilePicture: profileData.profilePicture,
+        curriculum: profileData.curriculum,
+        grade: profileData.grade,
+        subjects: JSON.stringify(profileData.subjects),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Server error: ${response.status}`);
-      }
-
-      const result = await response.json();
       console.log('Profile update result:', result);
-      
       setSuccess('Profile updated successfully!');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to update profile';
       console.error('Profile update error:', err);
-      setError(errorMessage);
+      if (err instanceof ApiError) {
+        if (err.statusCode === 401) {
+          navigate('/login');
+          return;
+        }
+        setError(err.message);
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to update profile');
+      }
     } finally {
       setLoading(false);
     }

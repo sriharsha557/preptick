@@ -2,36 +2,88 @@
 
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
+import rateLimit from '@fastify/rate-limit';
 import { prisma } from './lib/db';
 import { authRoutes } from './routes/auth';
+import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 
 const fastify = Fastify({
   logger: true,
 });
 
-// Register CORS
-fastify.register(cors, {
-  origin: true,
+// Allowed origins for CORS
+const ALLOWED_ORIGINS = process.env.NODE_ENV === 'production'
+  ? [
+      'https://preptick.vercel.app',
+      'https://www.preptick.vercel.app',
+      process.env.FRONTEND_URL, // Allow custom frontend URL if set
+    ].filter(Boolean) as string[]
+  : ['http://localhost:5173', 'http://127.0.0.1:5173'];
+
+// Register security headers
+fastify.register(helmet, {
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+    },
+  },
+  crossOriginEmbedderPolicy: false, // Allow embedding from same origin
 });
+
+// Register rate limiting
+fastify.register(rateLimit, {
+  max: 100,
+  timeWindow: '1 minute',
+  keyGenerator: (request) => request.ip,
+});
+
+// Register CORS with specific origins
+fastify.register(cors, {
+  origin: ALLOWED_ORIGINS,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+});
+
+// Register error handlers
+fastify.setErrorHandler(errorHandler);
+fastify.setNotFoundHandler(notFoundHandler);
+
+// Import route handlers
+import { testRoutes } from './routes/tests';
+import { syllabusRoutes } from './routes/syllabus';
+import { userRoutes } from './routes/users';
 
 // Register routes
 fastify.register(authRoutes);
-
-// Import and register test routes
-import { testRoutes } from './routes/tests';
 fastify.register(testRoutes);
-
-// Import and register syllabus routes
-import { syllabusRoutes } from './routes/syllabus';
 fastify.register(syllabusRoutes);
-
-// Import and register user routes
-import { userRoutes } from './routes/users';
 fastify.register(userRoutes);
 
-// Health check endpoint
-fastify.get('/health', async () => {
-  return { status: 'ok', timestamp: new Date().toISOString() };
+// Health check endpoint with database connectivity
+fastify.get('/health', async (request, reply) => {
+  try {
+    // Check database connection
+    await prisma.$queryRaw`SELECT 1`;
+
+    return {
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      database: 'connected',
+      environment: process.env.NODE_ENV || 'development',
+    };
+  } catch (error) {
+    return reply.status(503).send({
+      status: 'unhealthy',
+      timestamp: new Date().toISOString(),
+      database: 'disconnected',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
 });
 
 // Root endpoint
