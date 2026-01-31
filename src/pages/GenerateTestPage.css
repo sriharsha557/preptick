@@ -214,6 +214,44 @@
   margin: 0.25rem 0 0 2rem;
 }
 
+.checkbox-option {
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+  background: #f8f9ff;
+}
+
+.checkbox-option:hover {
+  border-color: #667eea;
+}
+
+.checkbox-option input[type="checkbox"] {
+  margin-right: 0.75rem;
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.checkbox-option input[type="checkbox"]:checked ~ span {
+  font-weight: 600;
+  color: #667eea;
+}
+
+.checkbox-option > span {
+  font-size: 1.05rem;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 0.25rem;
+}
+
+.checkbox-option .option-description {
+  margin-left: 2rem;
+}
+
 @media (max-width: 768px) {
   .generate-test-container {
     padding: 1.5rem;

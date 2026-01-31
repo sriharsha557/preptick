@@ -184,16 +184,18 @@ function generateTestContent(doc: PDFKit.PDFDocument, test: MockTest): void {
 }
 
 /**
- * Generate answer key content (with answers)
+ * Generate test with answer key on separate pages
+ * First generates the test questions, then adds answer key on new page(s)
  */
 function generateAnswerKeyContent(doc: PDFKit.PDFDocument, test: MockTest): void {
   const { configuration, questions, answerKey } = test;
 
+  // First, generate the test content (questions without answers)
   // Header
   doc
     .fontSize(20)
     .font('Helvetica-Bold')
-    .text('ANSWER KEY', { align: 'center' });
+    .text('MOCK EXAMINATION', { align: 'center' });
 
   doc.moveDown(0.5);
 
@@ -206,6 +208,22 @@ function generateAnswerKeyContent(doc: PDFKit.PDFDocument, test: MockTest): void
   doc
     .text(`Topics: ${configuration.topics.join(', ')}`, { align: 'center' });
 
+  doc.moveDown(0.5);
+
+  // Instructions
+  doc
+    .fontSize(10)
+    .font('Helvetica-Oblique')
+    .text('Instructions:', { underline: true });
+
+  doc
+    .font('Helvetica')
+    .text('1. Answer all questions in the space provided or on separate sheets.');
+
+  doc.text('2. Show all working where applicable.');
+
+  doc.text('3. Write clearly and legibly.');
+
   doc.moveDown(1);
 
   // Horizontal line
@@ -216,7 +234,7 @@ function generateAnswerKeyContent(doc: PDFKit.PDFDocument, test: MockTest): void
 
   doc.moveDown(1);
 
-  // Questions with answers
+  // Questions (without answers)
   questions.forEach((question, index) => {
     // Check if we need a new page
     if (doc.y > 700) {
@@ -246,37 +264,99 @@ function generateAnswerKeyContent(doc: PDFKit.PDFDocument, test: MockTest): void
     if (question.questionType === 'MultipleChoice' && question.options) {
       question.options.forEach((option, optIndex) => {
         const optionLabel = String.fromCharCode(65 + optIndex); // A, B, C, D...
-        const correctAnswer = answerKey.get(question.questionId);
-        const isCorrect = option === correctAnswer;
-
         doc
           .fontSize(10)
-          .font(isCorrect ? 'Helvetica-Bold' : 'Helvetica')
-          .text(`${optionLabel}. ${option}${isCorrect ? ' ✓' : ''}`, {
+          .font('Helvetica')
+          .text(`${optionLabel}. ${option}`, {
             indent: 40,
           });
         doc.moveDown(0.2);
       });
     }
 
-    // Correct answer
+    // Answer space
     doc.moveDown(0.5);
-    const correctAnswer = answerKey.get(question.questionId);
-    doc
-      .fontSize(10)
-      .font('Helvetica-Bold')
-      .fillColor('green')
-      .text(`Correct Answer: ${correctAnswer}`, { indent: 20 });
-
-    doc.fillColor('black'); // Reset color
-
-    // Syllabus reference
-    doc.moveDown(0.3);
     doc
       .fontSize(9)
       .font('Helvetica-Oblique')
-      .text(`Syllabus Reference: ${question.syllabusReference}`, { indent: 20 });
+      .text('Answer:', { indent: 20 });
+
+    // Draw lines for answer space
+    const answerLines = question.questionType === 'ShortAnswer' ? 3 : 1;
+    for (let i = 0; i < answerLines; i++) {
+      doc.moveDown(0.5);
+      const lineY = doc.y;
+      doc
+        .moveTo(70, lineY)
+        .lineTo(545, lineY)
+        .stroke();
+    }
 
     doc.moveDown(1.5);
+  });
+
+  // Add new page for Answer Key
+  doc.addPage();
+
+  // Answer Key Header
+  doc
+    .fontSize(20)
+    .font('Helvetica-Bold')
+    .text('ANSWER KEY', { align: 'center' });
+
+  doc.moveDown(0.5);
+
+  // Test information
+  doc
+    .fontSize(12)
+    .font('Helvetica')
+    .text(`Subject: ${configuration.subject}`, { align: 'center' });
+
+  doc.moveDown(1);
+
+  // Horizontal line
+  doc
+    .moveTo(50, doc.y)
+    .lineTo(545, doc.y)
+    .stroke();
+
+  doc.moveDown(1);
+
+  // Answer key entries (compact format)
+  questions.forEach((question, index) => {
+    // Check if we need a new page
+    if (doc.y > 720) {
+      doc.addPage();
+      doc
+        .fontSize(14)
+        .font('Helvetica-Bold')
+        .text('ANSWER KEY (continued)', { align: 'center' });
+      doc.moveDown(1);
+    }
+
+    const correctAnswer = answerKey.get(question.questionId);
+
+    // Question number and answer on same line
+    doc
+      .fontSize(11)
+      .font('Helvetica-Bold')
+      .text(`Q${index + 1}: `, { continued: true });
+
+    doc
+      .font('Helvetica')
+      .fillColor('green')
+      .text(correctAnswer || 'N/A', { continued: false });
+
+    doc.fillColor('black'); // Reset color
+
+    // Syllabus reference (smaller, on next line)
+    doc
+      .fontSize(8)
+      .font('Helvetica-Oblique')
+      .fillColor('gray')
+      .text(`   Ref: ${question.syllabusReference}`, { indent: 30 });
+
+    doc.fillColor('black'); // Reset color
+    doc.moveDown(0.8);
   });
 }

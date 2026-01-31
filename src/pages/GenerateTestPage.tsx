@@ -24,6 +24,7 @@ const GenerateTestPage: React.FC = () => {
     selectedTopics: [] as string[],
     questionCount: 10,
     testMode: 'InAppExam' as 'InAppExam' | 'PDFDownload',
+    includeAnswers: true,
   });
 
   useEffect(() => {
@@ -130,8 +131,8 @@ const GenerateTestPage: React.FC = () => {
 
       // If PDF mode, download the PDF
       if (formData.testMode === 'PDFDownload') {
-        // Use getApiUrl to get the correct PDF URL
-        const pdfUrl = getApiUrl(`/api/tests/${testId}/pdf?includeAnswers=true`);
+        // Use getApiUrl to get the correct PDF URL with user's answer preference
+        const pdfUrl = getApiUrl(`/api/tests/${testId}/pdf?includeAnswers=${formData.includeAnswers}`);
         window.open(pdfUrl, '_blank');
         navigate('/dashboard');
       } else {
@@ -269,10 +270,24 @@ const GenerateTestPage: React.FC = () => {
                     onChange={(e) => setFormData({ ...formData, testMode: e.target.value as 'InAppExam' | 'PDFDownload' })}
                   />
                   <span>Download as PDF</span>
-                  <p className="option-description">Download the test with answer key for offline practice</p>
+                  <p className="option-description">Download the test for offline practice</p>
                 </label>
               </div>
             </div>
+
+            {formData.testMode === 'PDFDownload' && (
+              <div className="form-section">
+                <label className="checkbox-option">
+                  <input
+                    type="checkbox"
+                    checked={formData.includeAnswers}
+                    onChange={(e) => setFormData({ ...formData, includeAnswers: e.target.checked })}
+                  />
+                  <span>Include Answer Key</span>
+                  <p className="option-description">Add answer key on separate pages at the end of the PDF</p>
+                </label>
+              </div>
+            )}
 
             <button
               type="submit"
