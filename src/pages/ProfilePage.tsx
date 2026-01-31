@@ -133,13 +133,19 @@ const ProfilePage: React.FC = () => {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update profile');
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Server error: ${response.status}`);
       }
 
+      const result = await response.json();
+      console.log('Profile update result:', result);
+      
       setSuccess('Profile updated successfully!');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update profile');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update profile';
+      console.error('Profile update error:', err);
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

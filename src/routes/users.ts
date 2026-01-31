@@ -95,7 +95,7 @@ export async function userRoutes(fastify: FastifyInstance) {
           country: updateData.country,
           profilePicture: updateData.profilePicture,
           curriculum: updateData.curriculum,
-          grade: updateData.grade,
+          grade: updateData.grade ? parseInt(String(updateData.grade)) : undefined,
           subjects: updateData.subjects,
         },
         select: {
