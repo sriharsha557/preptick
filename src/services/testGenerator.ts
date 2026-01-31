@@ -433,7 +433,47 @@ export class TestGeneratorService {
    * Requirement 13.4: Ensure generated questions are indexed for future use
    */
   private async indexGeneratedQuestions(questions: Question[]): Promise<void> {
-    // First, persist questions to the database
+    // First, ensure all topics exist in the database
+    const uniqueTopicIds = [...new Set(questions.map(q => q.topicId))];
+    
+    for (const topicId of uniqueTopicIds) {
+      try {
+        // Check if topic exists
+        const existingTopic = await this.prisma.syllabusTopic.findUnique({
+          where: { id: topicId },
+        });
+
+        if (!existingTopic) {
+          // Topic doesn't exist - create it
+          // Parse LLM topic ID to extract information
+          if (topicId.startsWith('llm-')) {
+            const parts = topicId.substring(4).split('-');
+            const curriculum = parts[0].toUpperCase();
+            const grade = parseInt(parts[1], 10);
+            const subject = parts.slice(2, -1).join(' ');
+            const topicName = `${subject.charAt(0).toUpperCase() + subject.slice(1)} Topic`;
+
+            await this.prisma.syllabusTopic.create({
+              data: {
+                id: topicId,
+                curriculum,
+                grade,
+                subject,
+                topicName,
+                syllabusSection: 'LLM Generated',
+                officialContent: `Auto-generated topic for ${curriculum} Class ${grade} ${subject}`,
+                learningObjectives: JSON.stringify([]),
+              },
+            });
+          }
+        }
+      } catch (error) {
+        console.error(`Failed to ensure topic ${topicId} exists:`, error);
+        throw new Error(`Failed to create topic in database: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }
+
+    // Now persist questions to the database
     for (const question of questions) {
       try {
         // Use upsert to handle cases where question might already exist
