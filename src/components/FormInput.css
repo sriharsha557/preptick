@@ -1,18 +1,20 @@
+/* Form Input - Human-Crafted Design with Warmth */
 .form-input-wrapper {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-xs);
-  margin-bottom: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
 }
 
 .form-input-label {
+  font-family: var(--font-display);
   font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
 }
 
 .form-input-required {
-  color: var(--color-error);
+  color: var(--color-secondary);
   margin-left: var(--spacing-xs);
 }
 
@@ -25,20 +27,24 @@
 .form-input {
   width: 100%;
   padding: var(--spacing-md);
-  padding-right: 2.5rem;
+  padding-right: 3rem;
   border: 2px solid var(--color-border);
   border-radius: var(--radius-md);
+  font-family: var(--font-body);
   font-size: var(--font-size-md);
-  font-family: inherit;
   color: var(--color-text-primary);
   background: var(--color-background);
   transition: all var(--transition-fast);
 }
 
+.form-input:hover:not(:focus):not(:disabled) {
+  border-color: var(--color-primary-light);
+}
+
 .form-input:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  box-shadow: 0 0 0 3px rgba(8, 145, 178, 0.15);
 }
 
 .form-input:disabled {
@@ -54,11 +60,12 @@
 /* Validation states */
 .form-input-error {
   border-color: var(--color-error);
+  animation: shake 0.3s ease-in-out;
 }
 
 .form-input-error:focus {
   border-color: var(--color-error);
-  box-shadow: 0 0 0 3px rgba(244, 67, 54, 0.1);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
 }
 
 .form-input-valid {
@@ -67,7 +74,7 @@
 
 .form-input-valid:focus {
   border-color: var(--color-success);
-  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
 }
 
 /* Icons */
@@ -86,23 +93,29 @@
 
 .form-input-icon-valid {
   color: var(--color-success);
-  animation: fadeIn var(--transition-fast);
+  animation: scaleIn var(--transition-fast);
 }
 
 .form-input-icon-error {
   color: var(--color-error);
-  animation: fadeIn var(--transition-fast);
+  animation: scaleIn var(--transition-fast);
 }
 
 /* Error text */
 .form-input-error-text {
+  font-family: var(--font-body);
   font-size: var(--font-size-sm);
   color: var(--color-error);
   margin-top: var(--spacing-xs);
   display: flex;
   align-items: center;
   gap: var(--spacing-xs);
-  animation: slideUp var(--transition-fast);
+  animation: fadeInDown var(--transition-fast);
+}
+
+.form-input-error-text::before {
+  content: '•';
+  font-weight: bold;
 }
 
 /* Help text */
@@ -120,6 +133,14 @@
   margin-top: var(--spacing-xs);
 }
 
+.form-input-count.warning {
+  color: var(--color-warning);
+}
+
+.form-input-count.error {
+  color: var(--color-error);
+}
+
 /* Password Strength Indicator */
 .password-strength {
   display: flex;
@@ -135,25 +156,139 @@
 }
 
 .password-strength-bar {
-  height: 4px;
+  height: 6px;
   flex: 1;
   background: var(--color-border);
-  border-radius: 2px;
+  border-radius: var(--radius-full);
   transition: all var(--transition-fast);
+  overflow: hidden;
 }
 
 .password-strength-bar.active {
   transform: scaleY(1.2);
 }
 
+.password-strength-bar.weak {
+  background: var(--color-error);
+}
+
+.password-strength-bar.fair {
+  background: var(--color-warning);
+}
+
+.password-strength-bar.good {
+  background: var(--color-primary);
+}
+
+.password-strength-bar.strong {
+  background: var(--color-success);
+}
+
 .password-strength-label {
+  font-family: var(--font-display);
   font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  min-width: 50px;
+  font-weight: var(--font-weight-semibold);
+  min-width: 60px;
+  text-align: right;
+}
+
+.password-strength-label.weak {
+  color: var(--color-error);
+}
+
+.password-strength-label.fair {
+  color: var(--color-warning);
+}
+
+.password-strength-label.good {
+  color: var(--color-primary);
+}
+
+.password-strength-label.strong {
+  color: var(--color-success);
+}
+
+/* Password toggle button */
+.password-toggle {
+  position: absolute;
+  right: var(--spacing-md);
+  background: none;
+  border: none;
+  padding: var(--spacing-xs);
+  cursor: pointer;
+  color: var(--color-text-tertiary);
+  transition: color var(--transition-fast);
+  border-radius: var(--radius-sm);
+}
+
+.password-toggle:hover {
+  color: var(--color-text-primary);
+}
+
+.password-toggle svg {
+  width: 20px;
+  height: 20px;
 }
 
 /* Focus-visible for keyboard navigation */
 .form-input:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
+}
+
+/* Textarea specific */
+textarea.form-input {
+  min-height: 120px;
+  resize: vertical;
+  line-height: var(--line-height-relaxed);
+}
+
+/* Select specific */
+select.form-input {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--spacing-md) center;
+  background-size: 18px;
+  padding-right: 3rem;
+}
+
+/* Input group (with prefix/suffix) */
+.form-input-group {
+  display: flex;
+  align-items: stretch;
+}
+
+.form-input-group .form-input {
+  border-radius: 0;
+}
+
+.form-input-group .form-input:first-child {
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+}
+
+.form-input-group .form-input:last-child {
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+
+.form-input-prefix,
+.form-input-suffix {
+  display: flex;
+  align-items: center;
+  padding: 0 var(--spacing-md);
+  background: var(--color-background-tertiary);
+  border: 2px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-md);
+}
+
+.form-input-prefix {
+  border-right: none;
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+}
+
+.form-input-suffix {
+  border-left: none;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
 }

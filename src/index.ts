@@ -7,6 +7,11 @@ import rateLimit from '@fastify/rate-limit';
 import { prisma } from './lib/db';
 import { authRoutes } from './routes/auth';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
+import { validateEnv, logEnvStatus } from './lib/env';
+
+// Validate environment variables at startup (fail fast in production if missing)
+validateEnv();
+logEnvStatus();
 
 const fastify = Fastify({
   logger: true,

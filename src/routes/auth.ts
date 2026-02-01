@@ -3,28 +3,31 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { supabase } from '../lib/supabase';
 import { prisma } from '../lib/db';
-
-interface LoginBody {
-  email: string;
-  password: string;
-}
-
-interface RegisterBody {
-  email: string;
-  password: string;
-  curriculum: 'CBSE' | 'Cambridge';
-  grade: number;
-  subjects: string[];
-}
+import {
+  loginSchema,
+  registerSchema,
+  formatZodErrors,
+  type LoginInput,
+  type RegisterInput,
+} from '../lib/validators';
 
 export async function authRoutes(fastify: FastifyInstance) {
   // Login endpoint
   fastify.post('/api/auth/login', async (
-    request: FastifyRequest<{ Body: LoginBody }>,
+    request: FastifyRequest<{ Body: LoginInput }>,
     reply: FastifyReply
   ) => {
     try {
-      const { email, password } = request.body;
+      // Validate request body
+      const validation = loginSchema.safeParse(request.body);
+      if (!validation.success) {
+        return reply.status(400).send({
+          error: 'Validation failed',
+          message: formatZodErrors(validation.error),
+        });
+      }
+
+      const { email, password } = validation.data;
 
       // Authenticate with Supabase
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -75,19 +78,20 @@ export async function authRoutes(fastify: FastifyInstance) {
 
   // Register endpoint
   fastify.post('/api/auth/register', async (
-    request: FastifyRequest<{ Body: RegisterBody }>,
+    request: FastifyRequest<{ Body: RegisterInput }>,
     reply: FastifyReply
   ) => {
     try {
-      const { email, password, curriculum, grade, subjects } = request.body;
-
-      // Validate grade
-      if (grade < 1 || grade > 10) {
+      // Validate request body
+      const validation = registerSchema.safeParse(request.body);
+      if (!validation.success) {
         return reply.status(400).send({
-          error: 'Invalid grade',
-          message: 'Grade must be between 1 and 10',
+          error: 'Validation failed',
+          message: formatZodErrors(validation.error),
         });
       }
+
+      const { email, password, curriculum, grade, subjects } = validation.data;
 
       // Create user in Supabase Auth
       const { data, error } = await supabase.auth.signUp({

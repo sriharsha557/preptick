@@ -105,6 +105,38 @@ export class RAGRetrieverImpl implements RAGRetriever {
   }
 
   /**
+   * Check if a topic ID is a custom user-provided topic
+   */
+  private isCustomTopic(topicId: TopicId): boolean {
+    return topicId.startsWith('custom-');
+  }
+
+  /**
+   * Parse topic information from custom topic ID
+   * Format: custom-{curriculum}-{grade}-{subject}-{topic-name}
+   * Example: custom-cbse-10-mathematics-quadratic-equations
+   */
+  private parseCustomTopicId(topicId: TopicId): { curriculum: string; grade: number; subject: string; topicName: string } {
+    // Remove 'custom-' prefix and split
+    const parts = topicId.substring(7).split('-');
+
+    // Format: curriculum-grade-subject-...topic-name (subject is single word, topic may have dashes)
+    if (parts.length < 4) {
+      throw new Error(`Invalid custom topic ID format: ${topicId}`);
+    }
+
+    const curriculum = parts[0].toUpperCase();
+    const grade = parseInt(parts[1], 10);
+    const subject = parts[2];
+    // Everything after curriculum-grade-subject is the topic name
+    const topicName = parts.slice(3).map(word =>
+      word.charAt(0).toUpperCase() + word.slice(1)
+    ).join(' ');
+
+    return { curriculum, grade, subject, topicName };
+  }
+
+  /**
    * Parse topic information from LLM-generated topic ID
    * Format: llm-{curriculum}-{grade}-{subject}-{index}
    * Example: llm-cbse-10-mathematics-0
@@ -133,7 +165,7 @@ export class RAGRetrieverImpl implements RAGRetriever {
 
   /**
    * Get syllabus context for a topic
-   * Handles both database topics and LLM-generated topics
+   * Handles database topics, LLM-generated topics, and custom user-provided topics
    */
   async getSyllabusContext(topicId: TopicId): Promise<SyllabusContext> {
     // Handle LLM-generated topics
@@ -147,6 +179,22 @@ export class RAGRetrieverImpl implements RAGRetriever {
           `${curriculum} curriculum standards`,
           `Class ${grade} level difficulty`,
           `${subject} fundamentals`,
+        ],
+      };
+    }
+
+    // Handle custom user-provided topics
+    if (this.isCustomTopic(topicId)) {
+      const { curriculum, grade, subject, topicName } = this.parseCustomTopicId(topicId);
+
+      return {
+        topicId,
+        content: `${curriculum} Class ${grade} ${subject}: ${topicName}. This is a custom topic requested by the student. Generate exam-realistic questions specifically about ${topicName} following the official ${curriculum} curriculum standards for Class ${grade}.`,
+        relatedConcepts: [
+          `${topicName} fundamentals`,
+          `${curriculum} curriculum standards`,
+          `Class ${grade} level difficulty`,
+          `${subject} core concepts`,
         ],
       };
     }

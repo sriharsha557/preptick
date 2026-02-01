@@ -78,10 +78,11 @@ export class TestGeneratorService {
   }
 
   /**
-   * Check if a topic ID is LLM-generated (dynamically created, not in database)
+   * Check if a topic ID is dynamically created (LLM-generated or custom user-provided)
+   * These topics don't exist in the database and should be auto-validated
    */
   private isLLMGeneratedTopic(topicId: TopicId): boolean {
-    return topicId.startsWith('llm-');
+    return topicId.startsWith('llm-') || topicId.startsWith('custom-');
   }
 
   /**

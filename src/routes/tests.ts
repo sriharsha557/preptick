@@ -12,14 +12,24 @@ import { LLMQuestionGeneratorService } from '../services/llmQuestionGenerator';
 import { generatePDF } from '../services/pdfGenerator';
 import { GroqEmbeddingService } from '../services/embedding';
 import { InMemoryVectorStore } from '../services/vectorStore';
+import {
+  generateTestSchema,
+  submitAnswerSchema,
+  submitTestSchema,
+  startTestSchema,
+  retryTestSchema,
+  formatZodErrors,
+  type GenerateTestInput,
+  type SubmitAnswerInput,
+} from '../lib/validators';
 
 // Initialize services
-const embeddingService = process.env.GROQ_API_KEY 
+const embeddingService = process.env.GROQ_API_KEY
   ? new GroqEmbeddingService(process.env.GROQ_API_KEY)
   : new GroqEmbeddingService('dummy-key'); // Fallback for when GROQ is not available
 const vectorStore = new InMemoryVectorStore();
 const ragRetriever = new RAGRetrieverImpl(prisma, embeddingService, vectorStore);
-const llmGenerator = process.env.GROQ_API_KEY 
+const llmGenerator = process.env.GROQ_API_KEY
   ? new LLMQuestionGeneratorService(process.env.GROQ_API_KEY)
   : undefined;
 const testGenerator = new TestGeneratorService(prisma, ragRetriever, llmGenerator);
@@ -28,40 +38,23 @@ const evaluator = new EvaluatorService(prisma);
 const feedbackEngine = new FeedbackEngine(prisma);
 const performanceHistory = new PerformanceHistoryService(prisma);
 
-interface GenerateTestBody {
-  userId: string;
-  subject: string;
-  topics: string[];
-  questionCount: number;
-  testCount?: number;
-  testMode?: 'InAppExam' | 'PDFDownload';
-}
-
-interface SubmitAnswerBody {
-  questionId: string;
-  answer: string;
-}
-
-interface SubmitTestBody {
-  sessionId: string;
-}
-
 export async function testRoutes(fastify: FastifyInstance) {
   // Generate new test
   fastify.post('/api/tests/generate', async (
-    request: FastifyRequest<{ Body: GenerateTestBody }>,
+    request: FastifyRequest<{ Body: GenerateTestInput }>,
     reply: FastifyReply
   ) => {
     try {
-      const { userId, subject, topics, questionCount, testCount = 1, testMode = 'InAppExam' } = request.body;
-
-      // Validate input
-      if (!userId || !subject || !topics || topics.length === 0 || !questionCount) {
+      // Validate request body
+      const validation = generateTestSchema.safeParse(request.body);
+      if (!validation.success) {
         return reply.status(400).send({
-          error: 'Invalid request',
-          message: 'userId, subject, topics, and questionCount are required',
+          error: 'Validation failed',
+          message: formatZodErrors(validation.error),
         });
       }
+
+      const { userId, subject, topics, questionCount, testCount, testMode } = validation.data;
 
       // Create test configuration
       const config = {

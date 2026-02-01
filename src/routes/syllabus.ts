@@ -3,6 +3,13 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { prisma } from '../lib/db';
 import Groq from 'groq-sdk';
+import {
+  syllabusParamsSchema,
+  topicsParamsSchema,
+  validateTopicSchema,
+  formatZodErrors,
+  type ValidateTopicInput,
+} from '../lib/validators';
 
 // Initialize GROQ client for LLM
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
@@ -174,9 +181,108 @@ export async function syllabusRoutes(fastify: FastifyInstance) {
     }
   });
 
+  // Validate custom topic relevance using LLM
+  fastify.post('/api/topics/validate', async (
+    request: FastifyRequest<{ Body: ValidateTopicInput }>,
+    reply: FastifyReply
+  ) => {
+    try {
+      // Validate request body with Zod
+      const validation = validateTopicSchema.safeParse(request.body);
+      if (!validation.success) {
+        return reply.status(400).send({
+          error: 'Validation failed',
+          message: formatZodErrors(validation.error),
+        });
+      }
+
+      const { customTopic, curriculum, grade, subject } = validation.data;
+
+      if (!groq) {
+        return reply.status(503).send({
+          error: 'Service unavailable',
+          message: 'LLM service is not configured',
+        });
+      }
+
+      // Use LLM to validate if the topic is relevant
+      const prompt = `You are an expert in ${curriculum} curriculum for Class ${grade} ${subject}.
+
+A student wants to study the topic: "${customTopic}"
+
+Evaluate if this topic is appropriate for ${curriculum} Class ${grade} ${subject}:
+1. Is this topic typically part of the official ${curriculum} Class ${grade} ${subject} syllabus?
+2. Is the difficulty level appropriate for Class ${grade} students?
+3. Is the topic within the scope of ${subject}?
+
+Return a JSON object with this exact format:
+{
+  "valid": true or false,
+  "feedback": "A brief, helpful explanation (1-2 sentences)"
+}
+
+If valid, the feedback should confirm the topic is appropriate.
+If invalid, the feedback should explain why (e.g., "This topic is typically covered in higher grades" or "This topic is part of a different subject").`;
+
+      const completion = await groq.chat.completions.create({
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an educational curriculum expert. Respond only with valid JSON.',
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        model: 'llama-3.3-70b-versatile',
+        temperature: 0.3,
+        max_tokens: 500,
+        response_format: { type: 'json_object' },
+      });
+
+      const responseContent = completion.choices[0]?.message?.content;
+      if (!responseContent) {
+        return reply.status(500).send({
+          error: 'LLM error',
+          message: 'No response from LLM',
+        });
+      }
+
+      const result = JSON.parse(responseContent);
+
+      if (result.valid) {
+        // Generate a topic ID for the custom topic
+        const sanitizedTopic = customTopic
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '');
+        const topicId = `custom-${curriculum.toLowerCase()}-${grade}-${subject.toLowerCase()}-${sanitizedTopic}`;
+
+        return reply.send({
+          valid: true,
+          feedback: result.feedback || `"${customTopic}" is a valid topic for Class ${grade} ${subject}.`,
+          topicId,
+          topicName: customTopic,
+        });
+      } else {
+        return reply.send({
+          valid: false,
+          feedback: result.feedback || `"${customTopic}" is not appropriate for Class ${grade} ${subject}.`,
+        });
+      }
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.status(500).send({
+        error: 'Internal server error',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  });
+
   // Get topic details by ID
   fastify.get('/api/syllabus/topic/:topicId', async (
-    request: FastifyRequest<{ 
+    request: FastifyRequest<{
       Params: { topicId: string };
     }>,
     reply: FastifyReply

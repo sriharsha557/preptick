@@ -1,18 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import './Header.css';
 
 const Header: React.FC = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const { isAuthenticated, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-
-  useEffect(() => {
-    // Check if user is logged in
-    const userId = localStorage.getItem('userId');
-    setIsLoggedIn(!!userId);
-  }, []);
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -43,10 +38,7 @@ const Header: React.FC = () => {
   }, [isMobileMenuOpen]);
 
   const handleLogout = () => {
-    localStorage.removeItem('userId');
-    localStorage.removeItem('userEmail');
-    localStorage.removeItem('token');
-    setIsLoggedIn(false);
+    logout();
     setIsMobileMenuOpen(false);
     navigate('/');
   };
@@ -58,7 +50,7 @@ const Header: React.FC = () => {
   return (
     <header className="header">
       <div className="header-container">
-        <Link to={isLoggedIn ? "/dashboard" : "/"} className="logo">
+        <Link to={isAuthenticated ? "/dashboard" : "/"} className="logo">
           <img src="/logo.png" alt="PREP TICK Logo" className="logo-image" />
           <span className="logo-text">PREP TICK</span>
         </Link>
@@ -92,7 +84,7 @@ const Header: React.FC = () => {
           role="navigation"
           aria-label="Main navigation"
         >
-          {!isLoggedIn && (
+          {!isAuthenticated && (
             <Link to="/" className="nav-link" onClick={() => setIsMobileMenuOpen(false)}>
               Home
             </Link>
@@ -106,7 +98,7 @@ const Header: React.FC = () => {
           <Link to="/faq" className="nav-link" onClick={() => setIsMobileMenuOpen(false)}>
             FAQ
           </Link>
-          {isLoggedIn ? (
+          {isAuthenticated ? (
             <>
               <Link to="/dashboard" className="nav-link" onClick={() => setIsMobileMenuOpen(false)}>
                 Dashboard

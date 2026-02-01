@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
@@ -15,7 +15,7 @@ interface LocationState {
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
 
   // Get the page user was trying to access before being redirected to login
   const from = (location.state as LocationState)?.from?.pathname || '/dashboard';
@@ -25,6 +25,15 @@ const LoginPage: React.FC = () => {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Navigate to dashboard when authentication state changes after login attempt
+  // Also redirect if user is already authenticated when visiting login page
+  useEffect(() => {
+    if (isAuthenticated) {
+      console.log('User authenticated, navigating to:', from);
+      navigate(from, { replace: true });
+    }
+  }, [isAuthenticated, navigate, from]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -71,12 +80,8 @@ const LoginPage: React.FC = () => {
         localStorage.setItem('supabase_session', JSON.stringify(authData.session));
 
         // Use AuthContext login method to set user state
+        // Navigation happens in useEffect when isAuthenticated becomes true
         login(authData.session.access_token, authData.user.id, authData.user.email || '');
-
-        console.log('Navigating to dashboard');
-
-        // Navigate to the page user was trying to access, or dashboard
-        navigate(from, { replace: true });
       } else {
         setError('Login failed. No session returned.');
         console.error('No session returned from Supabase');

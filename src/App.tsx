@@ -16,6 +16,7 @@ import GenerateTestPage from './pages/GenerateTestPage';
 import TakeTestPage from './pages/TakeTestPage';
 import TestResultsPage from './pages/TestResultsPage';
 import TestHistoryPage from './pages/TestHistoryPage';
+import NotFoundPage from './pages/NotFoundPage';
 import './App.css';
 
 function App() {
@@ -52,6 +53,9 @@ function App() {
           <Route path="/history" element={
             <ProtectedRoute><TestHistoryPage /></ProtectedRoute>
           } />
+
+          {/* 404 catch-all route */}
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
         </Router>
       </AuthProvider>

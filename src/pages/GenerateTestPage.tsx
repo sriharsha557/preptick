@@ -16,7 +16,16 @@ const GenerateTestPage: React.FC = () => {
   const [error, setError] = useState('');
   const [subjects] = useState(['Mathematics', 'Science', 'English']);
   const [topics, setTopics] = useState<Topic[]>([]);
-  
+
+  // Custom topic state
+  const [showCustomTopic, setShowCustomTopic] = useState(false);
+  const [customTopic, setCustomTopic] = useState('');
+  const [isValidating, setIsValidating] = useState(false);
+  const [validationFeedback, setValidationFeedback] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
+
   const [formData, setFormData] = useState({
     curriculum: 'CBSE',
     grade: 10,
@@ -92,6 +101,60 @@ const GenerateTestPage: React.FC = () => {
         ...formData,
         questionCount: value,
       });
+    }
+  };
+
+  const handleValidateCustomTopic = async () => {
+    if (!customTopic.trim()) return;
+
+    setIsValidating(true);
+    setValidationFeedback(null);
+
+    try {
+      const result = await apiPost<{
+        valid: boolean;
+        feedback: string;
+        topicId?: string;
+        topicName?: string;
+      }>('/api/topics/validate', {
+        customTopic: customTopic.trim(),
+        curriculum: formData.curriculum,
+        grade: formData.grade,
+        subject: formData.subject,
+      });
+
+      if (result.valid && result.topicId && result.topicName) {
+        // Add the custom topic to the topics list
+        const newTopic = { id: result.topicId, name: result.topicName };
+        setTopics(prev => [...prev, newTopic]);
+
+        // Auto-select the custom topic
+        setFormData(prev => ({
+          ...prev,
+          selectedTopics: [...prev.selectedTopics, result.topicId!],
+        }));
+
+        setValidationFeedback({
+          type: 'success',
+          message: result.feedback,
+        });
+
+        // Clear the input
+        setCustomTopic('');
+      } else {
+        setValidationFeedback({
+          type: 'error',
+          message: result.feedback,
+        });
+      }
+    } catch (err) {
+      console.error('Topic validation error:', err);
+      setValidationFeedback({
+        type: 'error',
+        message: 'Failed to validate topic. Please try again.',
+      });
+    } finally {
+      setIsValidating(false);
     }
   };
 
@@ -213,7 +276,7 @@ const GenerateTestPage: React.FC = () => {
               <label className="form-label">Topics</label>
               <div className="topics-grid">
                 {topics.map(topic => (
-                  <label key={topic.id} className="topic-checkbox">
+                  <label key={topic.id} className={`topic-checkbox ${topic.id.startsWith('custom-') ? 'custom-topic-chip' : ''}`}>
                     <input
                       type="checkbox"
                       checked={formData.selectedTopics.includes(topic.id)}
@@ -226,6 +289,51 @@ const GenerateTestPage: React.FC = () => {
               {formData.selectedTopics.length === 0 && (
                 <p className="help-text">Select at least one topic</p>
               )}
+
+              {/* Custom Topic Section */}
+              <div className="custom-topic-section">
+                <button
+                  type="button"
+                  className="custom-topic-toggle"
+                  onClick={() => {
+                    setShowCustomTopic(!showCustomTopic);
+                    setValidationFeedback(null);
+                  }}
+                >
+                  {showCustomTopic ? '−' : '+'} Add Custom Topic
+                </button>
+
+                {showCustomTopic && (
+                  <div className="custom-topic-form">
+                    <input
+                      type="text"
+                      value={customTopic}
+                      onChange={(e) => setCustomTopic(e.target.value)}
+                      placeholder="Enter a specific topic name..."
+                      className="custom-topic-input"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleValidateCustomTopic();
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleValidateCustomTopic}
+                      disabled={isValidating || !customTopic.trim()}
+                      className="validate-button"
+                    >
+                      {isValidating ? 'Validating...' : 'Validate & Add'}
+                    </button>
+                    {validationFeedback && (
+                      <div className={`validation-feedback ${validationFeedback.type}`}>
+                        {validationFeedback.message}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="form-section">
