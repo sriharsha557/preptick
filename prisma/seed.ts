@@ -61,7 +61,9 @@ async function createTopicsWithHierarchy(topics: TopicData[]) {
 async function main() {
   console.log('Starting database seed...');
 
-  // Clear existing data
+  // Clear existing data (in correct order due to foreign keys)
+  console.log('Clearing existing questions...');
+  await prisma.question.deleteMany({});
   console.log('Clearing existing syllabus topics...');
   await prisma.syllabusTopic.deleteMany({});
 

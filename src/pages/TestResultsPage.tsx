@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
+import { apiGet, getApiUrl } from '../lib/api';
 import './TestResultsPage.css';
 
 interface TopicScore {
@@ -67,13 +68,7 @@ const TestResultsPage: React.FC = () => {
         return;
       }
 
-      const response = await fetch(`/api/tests/${testId}/results?userId=${userId}`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to load results');
-      }
-
-      const data = await response.json();
+      const data = await apiGet<TestResults>(`/api/tests/${testId}/results?userId=${userId}`);
       setResults(data);
       setLoading(false);
     } catch (err) {
@@ -84,7 +79,7 @@ const TestResultsPage: React.FC = () => {
 
   const handleDownloadPDF = async () => {
     try {
-      const response = await fetch(`/api/tests/${testId}/pdf?includeAnswers=true`);
+      const response = await fetch(getApiUrl(`/api/tests/${testId}/pdf?includeAnswers=true`));
       
       if (!response.ok) {
         throw new Error('Failed to download PDF');

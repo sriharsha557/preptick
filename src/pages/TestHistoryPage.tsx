@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
+import { apiGet } from '../lib/api';
 import './TestHistoryPage.css';
 
 interface TestHistoryEntry {
@@ -33,13 +34,7 @@ const TestHistoryPage: React.FC = () => {
         return;
       }
 
-      const response = await fetch(`/api/tests/history/${userId}`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to load test history');
-      }
-
-      const data = await response.json();
+      const data = await apiGet<{ tests: TestHistoryEntry[]; averageScore: number }>(`/api/tests/history/${userId}`);
       setTests(data.tests);
       setAverageScore(data.averageScore);
       setLoading(false);

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { PageLoading } from '../components/LoadingSkeleton';
+import { apiPost, apiGet } from '../lib/api';
 import './TakeTestPage.css';
 
 interface Question {
@@ -95,30 +96,15 @@ const TakeTestPage: React.FC = () => {
       }
 
       // Start test session
-      const startResponse = await fetch(`/api/tests/${testId}/start`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ userId }),
-      });
-
-      if (!startResponse.ok) {
-        throw new Error('Failed to start test');
-      }
-
-      const startData = await startResponse.json();
+      const startData = await apiPost<{ sessionId: string }>(`/api/tests/${testId}/start`, { userId });
       const newSessionId = startData.sessionId;
       setSessionId(newSessionId);
 
       // Get test session with questions
-      const sessionResponse = await fetch(`/api/tests/session/${newSessionId}`);
-
-      if (!sessionResponse.ok) {
-        throw new Error('Failed to load test');
-      }
-
-      const sessionData = await sessionResponse.json();
+      const sessionData = await apiGet<{
+        questions: Question[];
+        responses: Response[];
+      }>(`/api/tests/session/${newSessionId}`);
       setQuestions(sessionData.questions);
 
       // Load existing responses
@@ -158,13 +144,7 @@ const TakeTestPage: React.FC = () => {
     }
 
     try {
-      await fetch(`/api/tests/session/${sessionId}/answer`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ questionId, answer }),
-      });
+      await apiPost(`/api/tests/session/${sessionId}/answer`, { questionId, answer });
 
       setSaveStatus('saved');
 
@@ -194,18 +174,7 @@ const TakeTestPage: React.FC = () => {
     // Auto-submit when time runs out
     setSubmitting(true);
     try {
-      const response = await fetch('/api/tests/submit', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ sessionId }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to submit test');
-      }
-
+      await apiPost('/api/tests/submit', { sessionId });
       navigate(`/test/${testId}/results`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit test');
@@ -218,18 +187,7 @@ const TakeTestPage: React.FC = () => {
     setSubmitting(true);
 
     try {
-      const response = await fetch('/api/tests/submit', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ sessionId }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to submit test');
-      }
-
+      await apiPost('/api/tests/submit', { sessionId });
       navigate(`/test/${testId}/results`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit test');
