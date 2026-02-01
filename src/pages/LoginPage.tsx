@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
+import { useAuth } from '../context/AuthContext';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import './AuthPages.css';
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -55,11 +57,11 @@ const LoginPage: React.FC = () => {
       if (authData.session) {
         console.log('Login successful! User ID:', authData.user.id);
         
-        // Store session and token
+        // Store Supabase session
         localStorage.setItem('supabase_session', JSON.stringify(authData.session));
-        localStorage.setItem('token', authData.session.access_token);
-        localStorage.setItem('userId', authData.user.id);
-        localStorage.setItem('userEmail', authData.user.email || '');
+        
+        // Use AuthContext login method to set user state
+        login(authData.session.access_token, authData.user.id, authData.user.email || '');
         
         console.log('Navigating to dashboard...');
         

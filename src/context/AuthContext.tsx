@@ -46,14 +46,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
     localStorage.setItem('userId', userId);
     localStorage.setItem('userEmail', email);
 
-    // Set basic user info immediately
+    // Set basic user info immediately so isAuthenticated becomes true
     setUser({
       id: userId,
       email,
     });
 
-    // Fetch full profile in background
-    refreshUser();
+    // Fetch full profile in background (don't logout on failure)
+    refreshUser().catch(err => {
+      console.error('Failed to fetch full profile, using basic info:', err);
+      // Keep the basic user info even if profile fetch fails
+    });
   };
 
   const logout = () => {
@@ -67,6 +70,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const refreshUser = async () => {
     try {
       const userId = localStorage.getItem('userId');
+      const userEmail = localStorage.getItem('userEmail');
+      
       if (!userId) {
         setUser(null);
         return;
@@ -91,8 +96,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
       });
     } catch (error) {
       console.error('Failed to refresh user:', error);
-      // If token is invalid, log out
-      logout();
+      
+      // Check if we have basic user info in localStorage
+      const userId = localStorage.getItem('userId');
+      const userEmail = localStorage.getItem('userEmail');
+      
+      if (userId && userEmail) {
+        // Keep user logged in with basic info if we have it
+        console.log('Using basic user info from localStorage');
+        setUser({
+          id: userId,
+          email: userEmail,
+        });
+      } else {
+        // Only log out if we have no user info at all
+        logout();
+      }
     }
   };
 
