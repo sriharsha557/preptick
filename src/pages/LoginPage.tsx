@@ -1,14 +1,24 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import './AuthPages.css';
 
+interface LocationState {
+  from?: {
+    pathname: string;
+  };
+}
+
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
+
+  // Get the page user was trying to access before being redirected to login
+  const from = (location.state as LocationState)?.from?.pathname || '/dashboard';
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -29,8 +39,8 @@ const LoginPage: React.FC = () => {
     setLoading(true);
 
     try {
-      console.log('Attempting login with:', formData.email);
-      
+      console.log('Attempting login...');
+
       // Login with Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: formData.email,
@@ -55,18 +65,18 @@ const LoginPage: React.FC = () => {
       }
 
       if (authData.session) {
-        console.log('Login successful! User ID:', authData.user.id);
-        
+        console.log('Login successful');
+
         // Store Supabase session
         localStorage.setItem('supabase_session', JSON.stringify(authData.session));
-        
+
         // Use AuthContext login method to set user state
         login(authData.session.access_token, authData.user.id, authData.user.email || '');
-        
-        console.log('Navigating to dashboard...');
-        
-        // Navigate to dashboard
-        navigate('/dashboard');
+
+        console.log('Navigating to dashboard');
+
+        // Navigate to the page user was trying to access, or dashboard
+        navigate(from, { replace: true });
       } else {
         setError('Login failed. No session returned.');
         console.error('No session returned from Supabase');

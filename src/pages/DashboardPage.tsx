@@ -29,10 +29,11 @@ const DashboardPage: React.FC = () => {
     const userId = localStorage.getItem('userId');
     const userEmail = localStorage.getItem('userEmail');
 
-    console.log('Dashboard - Checking auth:', { token: !!token, userId, userEmail });
+    // Debug auth state without exposing sensitive data
+    console.log('Dashboard - Checking auth:', { hasToken: !!token, hasUserId: !!userId });
 
     if (!token || !userId) {
-      console.log('No token or userId, redirecting to login');
+      console.log('Missing auth credentials, redirecting to login');
       navigate('/login');
       return;
     }
@@ -42,7 +43,7 @@ const DashboardPage: React.FC = () => {
 
   const fetchProfile = async (userId: string, email: string) => {
     try {
-      console.log('Fetching profile for:', userId, email);
+      console.log('Fetching user profile...');
 
       // Fetch profile from API using the authenticated API utility
       const data = await apiGet<{
