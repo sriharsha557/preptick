@@ -177,6 +177,39 @@ export async function testRoutes(fastify: FastifyInstance) {
 
       const { userId, subject, topics, questionCount, testCount, testMode } = validation.data;
 
+      // Ensure user exists in database before generating test
+      // This handles cases where user authenticated via Supabase but doesn't exist in Prisma
+      const userExists = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true },
+      });
+
+      if (!userExists) {
+        // Try to create user with defaults (they should re-login to get proper profile)
+        try {
+          await prisma.user.create({
+            data: {
+              id: userId,
+              email: `user-${userId.substring(0, 8)}@temp.local`, // Temporary email
+              passwordHash: '',
+              curriculum: 'CBSE',
+              grade: 10,
+              subjects: JSON.stringify(['Mathematics']),
+              createdAt: new Date(),
+              lastLogin: new Date(),
+            },
+          });
+          fastify.log.info(`Created temporary user record for userId: ${userId}`);
+        } catch (createError) {
+          // If user creation fails (e.g., email conflict), return helpful error
+          fastify.log.error('Failed to create user:', createError);
+          return reply.status(400).send({
+            error: 'User not found',
+            message: 'Please log out and log back in to sync your account.',
+          });
+        }
+      }
+
       // Create test configuration
       const config = {
         subject,
