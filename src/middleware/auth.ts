@@ -8,7 +8,8 @@ import { supabase } from '../lib/supabase';
 declare module 'fastify' {
   interface FastifyRequest {
     user?: {
-      userId: string;
+      id: string;      // User ID from Supabase
+      userId: string;  // Alias for id (for compatibility)
       email: string;
     };
   }
@@ -52,7 +53,8 @@ export async function authenticate(request: FastifyRequest, reply: FastifyReply)
 
     // Attach user info to request
     request.user = {
-      userId: user.id,
+      id: user.id,
+      userId: user.id, // Alias for compatibility
       email: user.email || '',
     };
   } catch (err) {
