@@ -16,6 +16,34 @@ import {
 } from '../types';
 import { QuestionGenerator } from './interfaces';
 
+/**
+ * Math subjects that require quantitative problem-solving
+ * Requirement 6.1: Identify Math_Subject types
+ */
+const MATH_SUBJECTS = [
+  'Mathematics',
+  'Math',
+  'Physics',
+  'Chemistry',
+  'Statistics',
+  'Calculus',
+  'Algebra',
+  'Geometry',
+  'Trigonometry',
+  'Arithmetic',
+];
+
+/**
+ * Check if a subject is a math subject requiring quantitative problems
+ * Requirement 6.1: Math Subject Identification
+ */
+export function isMathSubject(subject: string): boolean {
+  const subjectLower = subject.toLowerCase();
+  return MATH_SUBJECTS.some(mathSubj => 
+    subjectLower.includes(mathSubj.toLowerCase())
+  );
+}
+
 export class LLMQuestionGeneratorService implements QuestionGenerator {
   private groq: Groq;
 
@@ -33,14 +61,16 @@ export class LLMQuestionGeneratorService implements QuestionGenerator {
   async generateQuestions(
     syllabusContext: SyllabusContext,
     count: number,
-    existingQuestions: Question[]
+    existingQuestions: Question[],
+    subject?: string
   ): Promise<Result<Question[], GenerationError>> {
     try {
       // Build prompt with syllabus context and existing questions to avoid duplication
       const prompt = this.buildGenerationPrompt(
         syllabusContext,
         count,
-        existingQuestions
+        existingQuestions,
+        subject
       );
 
       // Call GROQ API
@@ -80,6 +110,7 @@ export class LLMQuestionGeneratorService implements QuestionGenerator {
       }
 
       // Convert LLM response to Question objects
+      // Requirement 4.2, 4.3: Parse solution steps from LLM response
       const questions: Question[] = parsedResponse.questions.map(
         (q: any, index: number) => ({
           questionId: `llm-${Date.now()}-${index}-${Math.random().toString(36).substring(2, 11)}`,
@@ -88,6 +119,7 @@ export class LLMQuestionGeneratorService implements QuestionGenerator {
           questionType: q.questionType as QuestionType,
           options: q.options,
           correctAnswer: q.correctAnswer,
+          solutionSteps: Array.isArray(q.solutionSteps) ? q.solutionSteps : [], // Parse and validate solution steps
           syllabusReference: q.syllabusReference || syllabusContext.content.substring(0, 50),
           difficulty: 'ExamRealistic',
           createdAt: new Date(),
@@ -178,7 +210,8 @@ Your task is to generate high-quality, exam-realistic questions that:
 3. Are clear, unambiguous, and age-appropriate
 4. Follow standard exam question formats
 5. Include accurate and verifiable correct answers
-6. Do NOT duplicate or closely resemble existing questions
+6. Include detailed step-by-step solution explanations
+7. Do NOT duplicate or closely resemble existing questions
 
 Question Types:
 - MultipleChoice: Include 4 options with exactly one correct answer
@@ -194,7 +227,12 @@ Return a JSON object with a "questions" array. Each question must have:
       "questionType": "MultipleChoice" | "ShortAnswer" | "Numerical",
       "options": ["option1", "option2", "option3", "option4"], // only for MultipleChoice
       "correctAnswer": "The correct answer",
-      "syllabusReference": "Specific syllabus section or concept"
+      "syllabusReference": "Specific syllabus section or concept",
+      "solutionSteps": [
+        "Step 1: Clear explanation of the first step",
+        "Step 2: Explanation of the next step with reasoning",
+        "Step 3: Final answer with complete justification"
+      ]
     }
   ]
 }`;
@@ -202,11 +240,13 @@ Return a JSON object with a "questions" array. Each question must have:
 
   /**
    * Build the prompt for question generation
+   * Requirements: 4.2, 4.3, 6.2, 6.5
    */
   private buildGenerationPrompt(
     syllabusContext: SyllabusContext,
     count: number,
-    existingQuestions: Question[]
+    existingQuestions: Question[],
+    subject?: string
   ): string {
     let prompt = `Generate ${count} exam-realistic questions based on the following syllabus content:\n\n`;
     
@@ -219,6 +259,19 @@ Return a JSON object with a "questions" array. Each question must have:
         prompt += `- ${concept}\n`;
       });
       prompt += '\n';
+    }
+
+    // Add math-specific constraints if this is a math subject
+    // Requirement 6.2: Use prompts that request numerical and calculation-based problems
+    if (subject && isMathSubject(subject)) {
+      prompt += `IMPORTANT - MATH SUBJECT REQUIREMENTS:
+- Generate ONLY quantitative, numerical, or calculation-based problems
+- Do NOT generate explanatory, theoretical, or definition-based questions
+- Each question MUST require mathematical computation or problem-solving
+- Focus on applying formulas, solving equations, or performing calculations
+- Include numerical values and require numerical answers
+
+`;
     }
 
     // Add existing questions to avoid duplication
@@ -236,9 +289,11 @@ Return a JSON object with a "questions" array. Each question must have:
 - Ensure all questions are exam-realistic in difficulty
 - Each question must test understanding of the syllabus content
 - Provide accurate correct answers
+- Include detailed step-by-step solution explanations in the solutionSteps array
+- Each solution step should be clear, logical, and educational
 - Include specific syllabus references
 
-Return the questions in the specified JSON format.`;
+Return the questions in the specified JSON format with solutionSteps included.`;
 
     return prompt;
   }

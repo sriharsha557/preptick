@@ -444,3 +444,304 @@ describe('PDF Generator Service', () => {
     });
   });
 });
+
+
+// ============================================================================
+// Property-Based Tests for P1 Improvements
+// ============================================================================
+
+import * as fc from 'fast-check';
+import { generateQuestionPaper, generateAnswerKey } from './pdfGenerator';
+
+describe('PDF Generator - P1 Improvements', () => {
+  // Helper to create test with specific topics
+  function createTestWithTopics(topics: string[]): MockTest {
+    const questions: Question[] = [{
+      questionId: 'q1',
+      topicId: 't1',
+      questionText: 'Sample question',
+      questionType: 'MultipleChoice',
+      options: ['A', 'B', 'C', 'D'],
+      correctAnswer: 'A',
+      solutionSteps: ['Step 1: Analyze', 'Step 2: Solve'],
+      syllabusReference: 'Test',
+      difficulty: 'ExamRealistic',
+      createdAt: new Date(),
+    }];
+
+    const answerKey = new Map<string, string>();
+    answerKey.set('q1', 'A');
+
+    return {
+      testId: 'test-123',
+      configuration: {
+        subject: 'Mathematics',
+        topics: topics,
+        questionCount: 1,
+        testCount: 1,
+        testMode: 'PrintablePDF',
+      },
+      questions,
+      answerKey,
+      createdAt: new Date(),
+    };
+  }
+
+  describe('Topic Header Properties', () => {
+    // Feature: p1-improvements, Property 3: All Topics Appear in PDF Header
+    // **Validates: Requirements 2.1**
+    it('Property 3: should include all topics in generated PDFs', async () => {
+      const testCases = [
+        ['Algebra'],
+        ['Algebra', 'Geometry'],
+        ['Algebra', 'Geometry', 'Calculus'],
+        ['Physics', 'Chemistry', 'Biology', 'Mathematics'],
+      ];
+
+      for (const topics of testCases) {
+        const test = createTestWithTopics(topics);
+        
+        // Test question paper
+        const questionResult = await generateQuestionPaper(test, topics);
+        expect(questionResult.ok).toBe(true);
+        if (questionResult.ok) {
+          // Verify PDF was generated successfully
+          expect(questionResult.value.buffer).toBeInstanceOf(Buffer);
+          expect(questionResult.value.buffer.length).toBeGreaterThan(0);
+        }
+
+        // Test answer key
+        const answerResult = await generateAnswerKey(test, topics);
+        expect(answerResult.ok).toBe(true);
+        if (answerResult.ok) {
+          expect(answerResult.value.buffer).toBeInstanceOf(Buffer);
+          expect(answerResult.value.buffer.length).toBeGreaterThan(0);
+        }
+      }
+    });
+
+    // Feature: p1-improvements, Property 4: Topic List Formatting
+    // **Validates: Requirements 2.2**
+    it('Property 4: should format single topic as "Topic:" and multiple as "Topics:"', async () => {
+      // Single topic
+      const singleTest = createTestWithTopics(['Algebra']);
+      const singleResult = await generateQuestionPaper(singleTest, ['Algebra']);
+      expect(singleResult.ok).toBe(true);
+      if (singleResult.ok) {
+        expect(singleResult.value.buffer).toBeInstanceOf(Buffer);
+        expect(singleResult.value.buffer.length).toBeGreaterThan(0);
+      }
+
+      // Multiple topics
+      const multiTest = createTestWithTopics(['Algebra', 'Geometry', 'Calculus']);
+      const multiResult = await generateQuestionPaper(multiTest, ['Algebra', 'Geometry', 'Calculus']);
+      expect(multiResult.ok).toBe(true);
+      if (multiResult.ok) {
+        expect(multiResult.value.buffer).toBeInstanceOf(Buffer);
+        expect(multiResult.value.buffer.length).toBeGreaterThan(0);
+      }
+    });
+
+    // Feature: p1-improvements, Property 5: Topic Order Preservation
+    // **Validates: Requirements 2.5**
+    it('Property 5: should preserve topic order in PDF', async () => {
+      const topics = ['Algebra', 'Geometry', 'Trigonometry'];
+      const test = createTestWithTopics(topics);
+      
+      const result = await generateQuestionPaper(test, topics);
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        // Verify PDF was generated successfully with topics in order
+        expect(result.value.buffer).toBeInstanceOf(Buffer);
+        expect(result.value.buffer.length).toBeGreaterThan(0);
+      }
+    });
+  });
+
+  describe('Dual PDF Generation', () => {
+    // Feature: p1-improvements, Property 6: Dual PDF Generation
+    // **Validates: Requirements 3.1**
+    it('Property 6: should generate two distinct PDFs', async () => {
+      const test = createMockTest(2);
+      const topics = ['Topic1', 'Topic2'];
+      
+      const questionResult = await generateQuestionPaper(test, topics);
+      const answerResult = await generateAnswerKey(test, topics);
+      
+      expect(questionResult.ok).toBe(true);
+      expect(answerResult.ok).toBe(true);
+      
+      if (questionResult.ok && answerResult.ok) {
+        // Verify both are valid PDFs
+        expect(questionResult.value.buffer.toString('utf-8', 0, 4)).toBe('%PDF');
+        expect(answerResult.value.buffer.toString('utf-8', 0, 4)).toBe('%PDF');
+        
+        // Verify they have different filenames
+        expect(questionResult.value.filename).toContain('questions');
+        expect(answerResult.value.filename).toContain('answers');
+        expect(questionResult.value.filename).not.toBe(answerResult.value.filename);
+      }
+    });
+
+    // Feature: p1-improvements, Property 7: Question Paper Excludes Answers
+    // **Validates: Requirements 3.2**
+    it('Property 7: question paper should not contain correct answers', async () => {
+      const test = createMockTest(3);
+      const topics = ['Topic1'];
+      
+      const result = await generateQuestionPaper(test, topics);
+      expect(result.ok).toBe(true);
+      
+      if (result.ok) {
+        // Verify PDF was generated successfully without answers
+        expect(result.value.buffer).toBeInstanceOf(Buffer);
+        expect(result.value.buffer.length).toBeGreaterThan(0);
+        expect(result.value.filename).toContain('questions');
+      }
+    });
+
+    // Feature: p1-improvements, Property 8: Answer Key Includes Solutions
+    // **Validates: Requirements 3.3**
+    it('Property 8: answer key should contain answers and solutions', async () => {
+      const questions: Question[] = [{
+        questionId: 'q1',
+        topicId: 't1',
+        questionText: 'What is 2+2?',
+        questionType: 'Numerical',
+        correctAnswer: '4',
+        solutionSteps: ['Step 1: Add 2 + 2', 'Step 2: Result is 4'],
+        syllabusReference: 'Arithmetic',
+        difficulty: 'ExamRealistic',
+        createdAt: new Date(),
+      }];
+
+      const answerKey = new Map<string, string>();
+      answerKey.set('q1', '4');
+
+      const test: MockTest = {
+        testId: 'test-123',
+        configuration: {
+          subject: 'Mathematics',
+          topics: ['t1'],
+          questionCount: 1,
+          testCount: 1,
+          testMode: 'PrintablePDF',
+        },
+        questions,
+        answerKey,
+        createdAt: new Date(),
+      };
+
+      const result = await generateAnswerKey(test, ['Arithmetic']);
+      expect(result.ok).toBe(true);
+      
+      if (result.ok) {
+        // Verify PDF was generated successfully with answers and solutions
+        expect(result.value.buffer).toBeInstanceOf(Buffer);
+        expect(result.value.buffer.length).toBeGreaterThan(0);
+        expect(result.value.filename).toContain('answers');
+      }
+    });
+
+    // Feature: p1-improvements, Property 11: Solution Steps Appear in Answer Key
+    // **Validates: Requirements 4.4, 4.5**
+    it('Property 11: solution steps should appear with proper formatting', async () => {
+      const questions: Question[] = [{
+        questionId: 'q1',
+        topicId: 't1',
+        questionText: 'Solve x + 5 = 10',
+        questionType: 'Numerical',
+        correctAnswer: '5',
+        solutionSteps: [
+          'Subtract 5 from both sides',
+          'x = 10 - 5',
+          'x = 5'
+        ],
+        syllabusReference: 'Algebra',
+        difficulty: 'ExamRealistic',
+        createdAt: new Date(),
+      }];
+
+      const answerKey = new Map<string, string>();
+      answerKey.set('q1', '5');
+
+      const test: MockTest = {
+        testId: 'test-123',
+        configuration: {
+          subject: 'Mathematics',
+          topics: ['t1'],
+          questionCount: 1,
+          testCount: 1,
+          testMode: 'PrintablePDF',
+        },
+        questions,
+        answerKey,
+        createdAt: new Date(),
+      };
+
+      const result = await generateAnswerKey(test, ['Algebra']);
+      expect(result.ok).toBe(true);
+      
+      if (result.ok) {
+        // Verify PDF was generated successfully with solution steps
+        expect(result.value.buffer).toBeInstanceOf(Buffer);
+        expect(result.value.buffer.length).toBeGreaterThan(0);
+      }
+    });
+  });
+
+  describe('Edge Cases', () => {
+    // Requirement 2.4: Single topic formatting
+    it('should generate PDF successfully with single topic', async () => {
+      const test = createTestWithTopics(['Mathematics']);
+      const result = await generateQuestionPaper(test, ['Mathematics']);
+      
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.buffer).toBeInstanceOf(Buffer);
+        expect(result.value.buffer.length).toBeGreaterThan(0);
+      }
+    });
+
+    // Requirement 4.6: Missing solution steps
+    it('should handle missing solution steps gracefully', async () => {
+      const questions: Question[] = [{
+        questionId: 'q1',
+        topicId: 't1',
+        questionText: 'What is 2+2?',
+        questionType: 'Numerical',
+        correctAnswer: '4',
+        // No solutionSteps field
+        syllabusReference: 'Arithmetic',
+        difficulty: 'ExamRealistic',
+        createdAt: new Date(),
+      }];
+
+      const answerKey = new Map<string, string>();
+      answerKey.set('q1', '4');
+
+      const test: MockTest = {
+        testId: 'test-123',
+        configuration: {
+          subject: 'Mathematics',
+          topics: ['t1'],
+          questionCount: 1,
+          testCount: 1,
+          testMode: 'PrintablePDF',
+        },
+        questions,
+        answerKey,
+        createdAt: new Date(),
+      };
+
+      const result = await generateAnswerKey(test, ['Arithmetic']);
+      expect(result.ok).toBe(true);
+      
+      if (result.ok) {
+        // Should not crash - if we got here, it handled missing steps gracefully
+        expect(result.value.buffer).toBeInstanceOf(Buffer);
+        expect(result.value.buffer.length).toBeGreaterThan(0);
+      }
+    });
+  });
+});

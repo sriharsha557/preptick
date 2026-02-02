@@ -1590,3 +1590,189 @@ describe('TestGeneratorService - LLM Fallback Integration (Task 7.3)', () => {
     });
   });
 });
+
+// ============================================================================
+// Property-Based Tests for P1 Improvements
+// ============================================================================
+
+import * as fc from 'fast-check';
+import { calculateBalancedDistribution } from './testGenerator';
+
+describe('TestGeneratorService - Balanced Distribution (P1 Improvements)', () => {
+  describe('Property Tests', () => {
+    // Feature: p1-improvements, Property 12: Balanced Distribution Calculation
+    // **Validates: Requirements 5.1, 5.3**
+    it('Property 12: should calculate balanced distribution correctly for any Q and T where Q >= T', () => {
+      fc.assert(
+        fc.property(
+          fc.integer({ min: 1, max: 100 }), // topicCount (T)
+          fc.integer({ min: 1, max: 200 }), // totalQuestions (Q)
+          (topicCount, totalQuestions) => {
+            // Only test when Q >= T
+            fc.pre(totalQuestions >= topicCount);
+            
+            // Generate topics
+            const topics = Array.from({ length: topicCount }, (_, i) => ({
+              topicId: `topic-${i}`,
+              topicName: `Topic ${i}`,
+            }));
+            
+            // Calculate distribution
+            const distribution = calculateBalancedDistribution(topics, totalQuestions);
+            
+            // Verify: floor(Q/T) questions to each topic
+            const baseQuestionsPerTopic = Math.floor(totalQuestions / topicCount);
+            const remainder = totalQuestions % topicCount;
+            
+            // Check each topic's question count
+            distribution.forEach((topicDist, index) => {
+              const expectedCount = baseQuestionsPerTopic + (index < remainder ? 1 : 0);
+              expect(topicDist.questionCount).toBe(expectedCount);
+            });
+            
+            // Verify total questions sum equals totalQuestions
+            const totalAssigned = distribution.reduce((sum, t) => sum + t.questionCount, 0);
+            expect(totalAssigned).toBe(totalQuestions);
+          }
+        ),
+        { numRuns: 100 }
+      );
+    });
+
+    // Feature: p1-improvements, Property 13: Distribution Fairness
+    // **Validates: Requirements 5.2**
+    it('Property 13: should ensure max - min question count difference is at most 1', () => {
+      fc.assert(
+        fc.property(
+          fc.integer({ min: 1, max: 100 }), // topicCount
+          fc.integer({ min: 1, max: 200 }), // totalQuestions
+          (topicCount, totalQuestions) => {
+            // Generate topics
+            const topics = Array.from({ length: topicCount }, (_, i) => ({
+              topicId: `topic-${i}`,
+              topicName: `Topic ${i}`,
+            }));
+            
+            // Calculate distribution
+            const distribution = calculateBalancedDistribution(topics, totalQuestions);
+            
+            // Find max and min question counts
+            const questionCounts = distribution.map(t => t.questionCount);
+            const maxCount = Math.max(...questionCounts);
+            const minCount = Math.min(...questionCounts);
+            
+            // Verify fairness: difference should be at most 1
+            expect(maxCount - minCount).toBeLessThanOrEqual(1);
+          }
+        ),
+        { numRuns: 100 }
+      );
+    });
+
+    // Feature: p1-improvements, Property 14: Minimum Topic Coverage
+    // **Validates: Requirements 5.4**
+    it('Property 14: should ensure each topic gets at least one question when Q >= T', () => {
+      fc.assert(
+        fc.property(
+          fc.integer({ min: 1, max: 50 }), // topicCount (T)
+          fc.integer({ min: 1, max: 100 }), // totalQuestions (Q)
+          (topicCount, totalQuestions) => {
+            // Only test when Q >= T
+            fc.pre(totalQuestions >= topicCount);
+            
+            // Generate topics
+            const topics = Array.from({ length: topicCount }, (_, i) => ({
+              topicId: `topic-${i}`,
+              topicName: `Topic ${i}`,
+            }));
+            
+            // Calculate distribution
+            const distribution = calculateBalancedDistribution(topics, totalQuestions);
+            
+            // Verify each topic gets at least one question
+            distribution.forEach(topicDist => {
+              expect(topicDist.questionCount).toBeGreaterThanOrEqual(1);
+            });
+          }
+        ),
+        { numRuns: 100 }
+      );
+    });
+  });
+
+  describe('Edge Cases', () => {
+    // Requirement 5.5: More topics than questions
+    it('should handle case when totalQuestions < topicCount', () => {
+      const topics = [
+        { topicId: 'topic1', topicName: 'Topic 1' },
+        { topicId: 'topic2', topicName: 'Topic 2' },
+        { topicId: 'topic3', topicName: 'Topic 3' },
+        { topicId: 'topic4', topicName: 'Topic 4' },
+        { topicId: 'topic5', topicName: 'Topic 5' },
+      ];
+      
+      const distribution = calculateBalancedDistribution(topics, 3);
+      
+      // First 3 topics should get 1 question each
+      expect(distribution[0].questionCount).toBe(1);
+      expect(distribution[1].questionCount).toBe(1);
+      expect(distribution[2].questionCount).toBe(1);
+      
+      // Remaining topics should get 0 questions
+      expect(distribution[3].questionCount).toBe(0);
+      expect(distribution[4].questionCount).toBe(0);
+      
+      // Total should equal requested questions
+      const total = distribution.reduce((sum, t) => sum + t.questionCount, 0);
+      expect(total).toBe(3);
+    });
+
+    it('should handle single topic', () => {
+      const topics = [{ topicId: 'topic1', topicName: 'Topic 1' }];
+      const distribution = calculateBalancedDistribution(topics, 10);
+      
+      expect(distribution).toHaveLength(1);
+      expect(distribution[0].questionCount).toBe(10);
+    });
+
+    it('should handle empty topics array', () => {
+      const distribution = calculateBalancedDistribution([], 10);
+      expect(distribution).toHaveLength(0);
+    });
+
+    it('should handle zero questions', () => {
+      const topics = [
+        { topicId: 'topic1', topicName: 'Topic 1' },
+        { topicId: 'topic2', topicName: 'Topic 2' },
+      ];
+      
+      const distribution = calculateBalancedDistribution(topics, 0);
+      
+      expect(distribution).toHaveLength(2);
+      expect(distribution[0].questionCount).toBe(0);
+      expect(distribution[1].questionCount).toBe(0);
+    });
+
+    it('should distribute remainder questions to first N topics', () => {
+      const topics = [
+        { topicId: 'topic1', topicName: 'Topic 1' },
+        { topicId: 'topic2', topicName: 'Topic 2' },
+        { topicId: 'topic3', topicName: 'Topic 3' },
+      ];
+      
+      // 10 questions / 3 topics = 3 base + 1 remainder
+      const distribution = calculateBalancedDistribution(topics, 10);
+      
+      // First topic gets 3 + 1 = 4
+      expect(distribution[0].questionCount).toBe(4);
+      // Second topic gets 3
+      expect(distribution[1].questionCount).toBe(3);
+      // Third topic gets 3
+      expect(distribution[2].questionCount).toBe(3);
+      
+      // Total = 10
+      const total = distribution.reduce((sum, t) => sum + t.questionCount, 0);
+      expect(total).toBe(10);
+    });
+  });
+});

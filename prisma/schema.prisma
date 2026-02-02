@@ -65,6 +65,7 @@ model Question {
   questionType      String   // 'MultipleChoice' | 'ShortAnswer' | 'Numerical'
   options           String?  // JSON array for multiple choice
   correctAnswer     String
+  solutionSteps     String   @default("[]") // JSON array of solution steps
   syllabusReference String
   difficulty        String   @default("ExamRealistic")
   createdAt         DateTime @default(now())
@@ -78,13 +79,15 @@ model Question {
 
 // Mock Tests
 model Test {
-  id        String   @id @default(uuid())
-  userId    String
-  subject   String
-  topics    String   // JSON array of topic IDs
-  mode      String   // 'PrintablePDF' | 'InAppExam'
-  status    String   @default("Generated") // 'Generated' | 'InProgress' | 'Submitted'
-  createdAt DateTime @default(now())
+  id               String   @id @default(uuid())
+  userId           String
+  subject          String
+  topics           String   // JSON array of topic IDs
+  mode             String   // 'PrintablePDF' | 'InAppExam'
+  status           String   @default("Generated") // 'Generated' | 'InProgress' | 'Submitted'
+  questionPaperPDF Bytes?   // PDF buffer for question paper
+  answerKeyPDF     Bytes?   // PDF buffer for answer key
+  createdAt        DateTime @default(now())
 
   user               User                @relation(fields: [userId], references: [id])
   testQuestions      TestQuestion[]

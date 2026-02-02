@@ -95,6 +95,7 @@ export type Question = {
   questionType: QuestionType;
   options?: string[]; // for multiple choice
   correctAnswer: string;
+  solutionSteps?: string[]; // Step-by-step solution explanation
   syllabusReference: string;
   difficulty: 'ExamRealistic';
   createdAt: Timestamp;

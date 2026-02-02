@@ -630,3 +630,341 @@ describe('LLMQuestionGeneratorService', () => {
     });
   });
 });
+
+
+// ============================================================================
+// Property-Based Tests for P1 Improvements
+// ============================================================================
+
+import * as fc from 'fast-check';
+import { isMathSubject } from './llmQuestionGenerator';
+
+describe('LLMQuestionGeneratorService - P1 Improvements', () => {
+  describe('Math Subject Detection', () => {
+    // Feature: p1-improvements, Property 15: Math Subject Identification
+    // **Validates: Requirements 6.1**
+    it('Property 15: should identify math subjects correctly', () => {
+      fc.assert(
+        fc.property(
+          fc.constantFrom(
+            'Mathematics',
+            'Math',
+            'Physics',
+            'Chemistry',
+            'Statistics',
+            'Calculus',
+            'Algebra',
+            'Geometry',
+            'Trigonometry',
+            'Arithmetic'
+          ),
+          (mathSubject) => {
+            // Test exact match
+            expect(isMathSubject(mathSubject)).toBe(true);
+            
+            // Test case-insensitive match
+            expect(isMathSubject(mathSubject.toLowerCase())).toBe(true);
+            expect(isMathSubject(mathSubject.toUpperCase())).toBe(true);
+            
+            // Test as part of longer string
+            expect(isMathSubject(`Advanced ${mathSubject}`)).toBe(true);
+            expect(isMathSubject(`${mathSubject} Grade 10`)).toBe(true);
+          }
+        ),
+        { numRuns: 100 }
+      );
+    });
+
+    it('should not identify non-math subjects as math', () => {
+      const nonMathSubjects = [
+        'English',
+        'History',
+        'Geography',
+        'Biology',
+        'Literature',
+        'Social Studies',
+        'Art',
+        'Music',
+        'Physical Education',
+      ];
+
+      nonMathSubjects.forEach(subject => {
+        expect(isMathSubject(subject)).toBe(false);
+      });
+    });
+
+    it('should handle edge cases', () => {
+      expect(isMathSubject('')).toBe(false);
+      expect(isMathSubject('   ')).toBe(false);
+      expect(isMathSubject('Math123')).toBe(true);
+      expect(isMathSubject('Pre-Calculus')).toBe(true);
+      expect(isMathSubject('Applied Physics')).toBe(true);
+    });
+  });
+
+  describe('Prompt Construction with Math Constraints', () => {
+    let questionGenerator: LLMQuestionGeneratorService;
+    let mockGroqCreate: any;
+
+    beforeEach(() => {
+      questionGenerator = new LLMQuestionGeneratorService('test-api-key');
+      mockGroqCreate = (questionGenerator as any).groq.chat.completions.create;
+    });
+
+    // Feature: p1-improvements, Property 16: Conditional Prompt Construction
+    // **Validates: Requirements 6.2, 6.5**
+    it('Property 16: should include math constraints for math subjects', async () => {
+      const mathSubjects = ['Mathematics', 'Physics', 'Chemistry', 'Algebra'];
+      
+      for (const mathSubject of mathSubjects) {
+        // Clear mock before each iteration
+        mockGroqCreate.mockClear();
+        
+        mockGroqCreate.mockResolvedValue({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  questions: [
+                    {
+                      questionText: 'Calculate 2 + 2',
+                      questionType: 'Numerical',
+                      correctAnswer: '4',
+                      syllabusReference: 'Addition',
+                      solutionSteps: ['Step 1: Add 2 + 2', 'Step 2: Result is 4'],
+                    },
+                  ],
+                }),
+              },
+            },
+          ],
+        });
+
+        const syllabusContext = {
+          topicId: 'test-topic',
+          content: 'Test content',
+          relatedConcepts: ['Test'],
+        };
+
+        await questionGenerator.generateQuestions(
+          syllabusContext,
+          1,
+          [],
+          mathSubject
+        );
+
+        // Verify the prompt includes math constraints
+        expect(mockGroqCreate).toHaveBeenCalled();
+        const callArgs = mockGroqCreate.mock.calls[0][0];
+        const userMessage = callArgs.messages.find((m: any) => m.role === 'user');
+        expect(userMessage.content).toContain('MATH SUBJECT REQUIREMENTS');
+        expect(userMessage.content).toContain('quantitative');
+        expect(userMessage.content).toContain('numerical');
+        expect(userMessage.content).toContain('calculation-based');
+      }
+    });
+
+    it('Property 16: should NOT include math constraints for non-math subjects', async () => {
+      const nonMathSubjects = ['English', 'History', 'Biology', 'Geography'];
+      
+      for (const nonMathSubject of nonMathSubjects) {
+        // Clear mock before each iteration
+        mockGroqCreate.mockClear();
+        
+        mockGroqCreate.mockResolvedValue({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  questions: [
+                    {
+                      questionText: 'What is photosynthesis?',
+                      questionType: 'ShortAnswer',
+                      correctAnswer: 'Process by which plants make food',
+                      syllabusReference: 'Biology',
+                      solutionSteps: ['Step 1: Define photosynthesis'],
+                    },
+                  ],
+                }),
+              },
+            },
+          ],
+        });
+
+        const syllabusContext = {
+          topicId: 'test-topic',
+          content: 'Test content',
+          relatedConcepts: ['Test'],
+        };
+
+        await questionGenerator.generateQuestions(
+          syllabusContext,
+          1,
+          [],
+          nonMathSubject
+        );
+
+        // Verify the prompt does NOT include math constraints
+        expect(mockGroqCreate).toHaveBeenCalled();
+        const callArgs = mockGroqCreate.mock.calls[0][0];
+        const userMessage = callArgs.messages.find((m: any) => m.role === 'user');
+        expect(userMessage.content).not.toContain('MATH SUBJECT REQUIREMENTS');
+      }
+    });
+  });
+
+  describe('Solution Steps Generation', () => {
+    let questionGenerator: LLMQuestionGeneratorService;
+    let mockGroqCreate: any;
+
+    beforeEach(() => {
+      questionGenerator = new LLMQuestionGeneratorService('test-api-key');
+      mockGroqCreate = (questionGenerator as any).groq.chat.completions.create;
+    });
+
+    // Feature: p1-improvements, Property 9: LLM Generates Solution Steps
+    // **Validates: Requirements 4.2**
+    it('Property 9: should generate questions with solution steps', async () => {
+      fc.assert(
+        fc.asyncProperty(
+          fc.integer({ min: 1, max: 5 }),
+          fc.array(fc.string({ minLength: 10, maxLength: 100 }), { minLength: 1, maxLength: 5 }),
+          async (questionCount, solutionSteps) => {
+            const questions = Array.from({ length: questionCount }, (_, i) => ({
+              questionText: `Question ${i + 1}`,
+              questionType: 'MultipleChoice',
+              options: ['A', 'B', 'C', 'D'],
+              correctAnswer: 'A',
+              syllabusReference: 'Test',
+              solutionSteps: solutionSteps,
+            }));
+
+            mockGroqCreate.mockResolvedValue({
+              choices: [
+                {
+                  message: {
+                    content: JSON.stringify({ questions }),
+                  },
+                },
+              ],
+            });
+
+            const syllabusContext = {
+              topicId: 'test-topic',
+              content: 'Test content',
+              relatedConcepts: ['Test'],
+            };
+
+            const result = await questionGenerator.generateQuestions(
+              syllabusContext,
+              questionCount,
+              []
+            );
+
+            expect(result.ok).toBe(true);
+            if (result.ok) {
+              result.value.forEach(q => {
+                expect(q.solutionSteps).toBeDefined();
+                expect(Array.isArray(q.solutionSteps)).toBe(true);
+                expect(q.solutionSteps!.length).toBeGreaterThan(0);
+              });
+            }
+          }
+        ),
+        { numRuns: 50 }
+      );
+    });
+
+    // Feature: p1-improvements, Property 10: Solution Steps Are Structured
+    // **Validates: Requirements 4.3**
+    it('Property 10: should structure solution steps as array of strings', async () => {
+      mockGroqCreate.mockResolvedValue({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                questions: [
+                  {
+                    questionText: 'Solve 2x + 3 = 7',
+                    questionType: 'Numerical',
+                    correctAnswer: '2',
+                    syllabusReference: 'Algebra',
+                    solutionSteps: [
+                      'Step 1: Subtract 3 from both sides: 2x = 4',
+                      'Step 2: Divide both sides by 2: x = 2',
+                      'Step 3: Verify: 2(2) + 3 = 7 ✓',
+                    ],
+                  },
+                ],
+              }),
+            },
+          },
+        ],
+      });
+
+      const syllabusContext = {
+        topicId: 'test-topic',
+        content: 'Test content',
+        relatedConcepts: ['Test'],
+      };
+
+      const result = await questionGenerator.generateQuestions(
+        syllabusContext,
+        1,
+        []
+      );
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        const question = result.value[0];
+        expect(Array.isArray(question.solutionSteps)).toBe(true);
+        question.solutionSteps!.forEach(step => {
+          expect(typeof step).toBe('string');
+          expect(step.length).toBeGreaterThan(0);
+        });
+      }
+    });
+
+    it('should handle missing solution steps gracefully', async () => {
+      mockGroqCreate.mockResolvedValue({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                questions: [
+                  {
+                    questionText: 'What is 2 + 2?',
+                    questionType: 'Numerical',
+                    correctAnswer: '4',
+                    syllabusReference: 'Addition',
+                    // No solutionSteps field
+                  },
+                ],
+              }),
+            },
+          },
+        ],
+      });
+
+      const syllabusContext = {
+        topicId: 'test-topic',
+        content: 'Test content',
+        relatedConcepts: ['Test'],
+      };
+
+      const result = await questionGenerator.generateQuestions(
+        syllabusContext,
+        1,
+        []
+      );
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        const question = result.value[0];
+        expect(question.solutionSteps).toBeDefined();
+        expect(Array.isArray(question.solutionSteps)).toBe(true);
+        expect(question.solutionSteps).toEqual([]);
+      }
+    });
+  });
+});

@@ -16,6 +16,57 @@ import {
 } from '../types';
 import { RAGRetriever, QuestionGenerator } from './interfaces';
 
+/**
+ * Topic distribution for balanced question allocation
+ */
+export interface TopicDistribution {
+  topicId: TopicId;
+  topicName: string;
+  questionCount: number;
+}
+
+/**
+ * Calculate balanced distribution of questions across topics
+ * Requirements: 5.1, 5.3
+ * 
+ * @param topics - Array of topics with their IDs and names
+ * @param totalQuestions - Total number of questions to distribute
+ * @returns Array of TopicDistribution with balanced question counts
+ * 
+ * Algorithm:
+ * - Calculate base questions per topic: floor(totalQuestions / topicCount)
+ * - Calculate remainder: totalQuestions % topicCount
+ * - Assign base questions to all topics
+ * - Distribute remainder questions one per topic to first N topics
+ */
+export function calculateBalancedDistribution(
+  topics: Array<{ topicId: TopicId; topicName: string }>,
+  totalQuestions: number
+): TopicDistribution[] {
+  const topicCount = topics.length;
+  
+  if (topicCount === 0) {
+    return [];
+  }
+  
+  if (totalQuestions <= 0) {
+    return topics.map(topic => ({
+      topicId: topic.topicId,
+      topicName: topic.topicName,
+      questionCount: 0,
+    }));
+  }
+  
+  const baseQuestionsPerTopic = Math.floor(totalQuestions / topicCount);
+  const remainder = totalQuestions % topicCount;
+  
+  return topics.map((topic, index) => ({
+    topicId: topic.topicId,
+    topicName: topic.topicName,
+    questionCount: baseQuestionsPerTopic + (index < remainder ? 1 : 0),
+  }));
+}
+
 export class TestGeneratorService {
   private prisma: PrismaClient;
   private ragRetriever: RAGRetriever;
