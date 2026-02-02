@@ -749,8 +749,20 @@ export async function testRoutes(fastify: FastifyInstance) {
 
       // If student metadata provided, regenerate PDF with personalization (Requirement 9)
       if (studentName || grade) {
-        // Parse topics from stored JSON
-        const topics = JSON.parse(test.topics || '[]');
+        // Parse topic IDs from stored JSON
+        const topicIds = JSON.parse(test.topics || '[]');
+        
+        // Fetch actual topic names from database
+        const topicsFromDb = await prisma.topic.findMany({
+          where: { id: { in: topicIds } },
+          select: { id: true, topicName: true },
+        });
+        
+        // Create map of topic ID to name
+        const topicMap = new Map(topicsFromDb.map(t => [t.id, t.topicName]));
+        
+        // Get topic names in order
+        const topics = topicIds.map((id: string) => topicMap.get(id) || id);
 
         // Build questions array for PDF generation
         const questions: Question[] = test.testQuestions.map(tq => ({
@@ -868,8 +880,20 @@ export async function testRoutes(fastify: FastifyInstance) {
 
       // If student metadata provided, regenerate PDF with personalization (Requirement 9)
       if (studentName || grade) {
-        // Parse topics from stored JSON
-        const topics = JSON.parse(test.topics || '[]');
+        // Parse topic IDs from stored JSON
+        const topicIds = JSON.parse(test.topics || '[]');
+        
+        // Fetch actual topic names from database
+        const topicsFromDb = await prisma.topic.findMany({
+          where: { id: { in: topicIds } },
+          select: { id: true, topicName: true },
+        });
+        
+        // Create map of topic ID to name
+        const topicMap = new Map(topicsFromDb.map(t => [t.id, t.topicName]));
+        
+        // Get topic names in order
+        const topics = topicIds.map((id: string) => topicMap.get(id) || id);
 
         // Build questions array for PDF generation
         const questions: Question[] = test.testQuestions.map(tq => ({
