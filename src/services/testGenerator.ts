@@ -504,12 +504,17 @@ export class TestGeneratorService {
         if (!existingTopic) {
           // Topic doesn't exist - create it
           // Parse LLM topic ID to extract information
-          if (topicId.startsWith('llm-')) {
-            const parts = topicId.substring(4).split('-');
+          if (topicId.startsWith('llm-') || topicId.startsWith('custom-')) {
+            const prefix = topicId.startsWith('llm-') ? 'llm-' : 'custom-';
+            const parts = topicId.substring(prefix.length).split('-');
             const curriculum = parts[0].toUpperCase();
-            const grade = parseInt(parts[1], 10);
-            const subject = parts.slice(2, -1).join(' ');
-            const topicName = `${subject.charAt(0).toUpperCase() + subject.slice(1)} Topic`;
+            const grade = parseInt(parts[1], 10) || 10;
+            // Join remaining parts as subject, handling multi-word subjects
+            const subjectParts = parts.slice(2);
+            const subject = subjectParts.length > 0
+              ? subjectParts.join(' ').replace(/^\w/, c => c.toUpperCase())
+              : 'General';
+            const topicName = `${subject} Topic`;
 
             await this.prisma.syllabusTopic.create({
               data: {
@@ -523,16 +528,20 @@ export class TestGeneratorService {
                 learningObjectives: JSON.stringify([]),
               },
             });
+            console.log(`Created topic: ${topicId}`);
+          } else {
+            // Non-LLM topic that doesn't exist - this is a problem
+            throw new Error(`Topic ${topicId} does not exist in the database and cannot be auto-created`);
           }
         }
       } catch (error) {
-        // Log error but don't fail - this might be a test environment
+        // Topic creation failure is critical for question creation
         console.error(`Failed to ensure topic ${topicId} exists:`, error);
-        // Don't throw - continue with question indexing
+        throw new Error(`Failed to create topic ${topicId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
 
-    // Now persist questions to the database
+    // Now persist questions to the database - this MUST succeed for test persistence to work
     for (const question of questions) {
       try {
         // Use upsert to handle cases where question might already exist
@@ -544,6 +553,7 @@ export class TestGeneratorService {
             questionType: question.questionType,
             options: question.options ? JSON.stringify(question.options) : null,
             correctAnswer: question.correctAnswer,
+            solutionSteps: question.solutionSteps ? JSON.stringify(question.solutionSteps) : '[]',
             syllabusReference: question.syllabusReference,
           },
           create: {
@@ -553,17 +563,22 @@ export class TestGeneratorService {
             questionType: question.questionType,
             options: question.options ? JSON.stringify(question.options) : null,
             correctAnswer: question.correctAnswer,
+            solutionSteps: question.solutionSteps ? JSON.stringify(question.solutionSteps) : '[]',
             syllabusReference: question.syllabusReference,
             createdAt: question.createdAt,
           },
         });
 
-        // Index in RAG vector store for future retrieval
-        await this.ragRetriever.indexQuestion(question);
+        // Index in RAG vector store for future retrieval (non-critical)
+        try {
+          await this.ragRetriever.indexQuestion(question);
+        } catch (ragError) {
+          console.warn(`RAG indexing failed for question ${question.questionId}:`, ragError);
+        }
       } catch (error) {
-        // Log error but don't fail - this might be a test environment
-        console.error(`Failed to index question ${question.questionId}:`, error);
-        // Don't throw - continue with other questions
+        // Question creation failure is critical - throw to prevent test creation
+        console.error(`Failed to create question ${question.questionId}:`, error);
+        throw new Error(`Failed to save question to database: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
   }
