@@ -48,18 +48,50 @@ export async function authRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Get user profile from database
-      const user = await prisma.user.findUnique({
+      // Ensure user exists in database (handles DB reset or migration scenarios)
+      // First try to find by email (unique), then sync with Supabase ID
+      let user = await prisma.user.findUnique({
         where: { email },
       });
 
+      if (user) {
+        // User exists - update last login and ensure ID matches Supabase
+        if (user.id !== data.user.id) {
+          // ID mismatch - update the ID to match Supabase auth
+          await prisma.user.update({
+            where: { email },
+            data: { id: data.user.id, lastLogin: new Date() },
+          });
+          user = { ...user, id: data.user.id };
+        } else {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { lastLogin: new Date() },
+          });
+        }
+      } else {
+        // User doesn't exist - create with Supabase ID
+        user = await prisma.user.create({
+          data: {
+            id: data.user.id,
+            email,
+            passwordHash: '', // Supabase handles password
+            curriculum: 'CBSE', // Default values for users without profile
+            grade: 10,
+            subjects: JSON.stringify(['Mathematics']),
+            createdAt: new Date(),
+            lastLogin: new Date(),
+          },
+        });
+      }
+
       return reply.send({
         user: {
-          id: data.user.id,
-          email: data.user.email,
-          curriculum: user?.curriculum,
-          grade: user?.grade,
-          subjects: user?.subjects ? JSON.parse(user.subjects) : [],
+          id: user.id,
+          email: user.email,
+          curriculum: user.curriculum,
+          grade: user.grade,
+          subjects: user.subjects ? JSON.parse(user.subjects) : [],
         },
         session: {
           access_token: data.session.access_token,
