@@ -1,7 +1,7 @@
 // Test API routes
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { prisma } from '../lib/db';
+import { prisma, getPoolMetrics, logPoolWarning } from '../lib/db';
 import { TestGeneratorService } from '../services/testGenerator';
 import { TestExecutionService } from '../services/testExecution';
 import { EvaluatorService } from '../services/evaluator';
@@ -23,6 +23,16 @@ import {
   type SubmitAnswerInput,
 } from '../lib/validators';
 
+// Type definitions for request bodies
+interface SubmitAnswerBody {
+  questionId: string;
+  answer: string;
+}
+
+interface SubmitTestBody {
+  sessionId: string;
+}
+
 // Initialize services
 const embeddingService = process.env.GROQ_API_KEY
   ? new GroqEmbeddingService(process.env.GROQ_API_KEY)
@@ -37,6 +47,116 @@ const testExecution = new TestExecutionService(prisma);
 const evaluator = new EvaluatorService(prisma);
 const feedbackEngine = new FeedbackEngine(prisma);
 const performanceHistory = new PerformanceHistoryService(prisma);
+
+/**
+ * Retry helper with exponential backoff
+ * Requirements: P2 Requirement 3.3
+ * 
+ * Retries database operations up to 3 times with exponential backoff:
+ * - 1st retry: 100ms delay
+ * - 2nd retry: 200ms delay
+ * - 3rd retry: 400ms delay
+ */
+async function retryWithBackoff<T>(
+  operation: () => Promise<T>,
+  maxRetries: number = 3,
+  operationName: string = 'Database operation'
+): Promise<T> {
+  const delays = [100, 200, 400]; // Exponential backoff delays in milliseconds
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      // Validate connection pool before attempting operation
+      // Requirements: P2 Requirement 3.1
+      const metrics = await getPoolMetrics();
+      logPoolWarning(metrics);
+
+      if (metrics.utilizationPercent >= 100) {
+        throw new Error('Connection pool exhausted');
+      }
+
+      // Execute the operation
+      const startTime = Date.now();
+      const result = await operation();
+      const duration = Date.now() - startTime;
+
+      // Log if operation took longer than expected
+      if (duration > 100) {
+        console.warn(`[Retry Helper] ${operationName} took ${duration}ms (expected <100ms)`);
+      }
+
+      return result;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      
+      // Check if error is connection-related
+      const isConnectionError = 
+        lastError.message.includes('connection') ||
+        lastError.message.includes('timeout') ||
+        lastError.message.includes('pool') ||
+        lastError.message.includes('ECONNREFUSED') ||
+        lastError.message.includes('ETIMEDOUT');
+
+      // If not a connection error or we've exhausted retries, throw immediately
+      if (!isConnectionError || attempt >= maxRetries) {
+        console.error(`[Retry Helper] ${operationName} failed after ${attempt + 1} attempts:`, lastError.message);
+        throw lastError;
+      }
+
+      // Log retry attempt
+      const delay = delays[attempt];
+      console.warn(`[Retry Helper] ${operationName} failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delay}ms...`, {
+        error: lastError.message,
+        attempt: attempt + 1,
+        maxRetries: maxRetries + 1,
+      });
+
+      // Wait before retrying with exponential backoff
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+
+  // This should never be reached, but TypeScript needs it
+  throw lastError || new Error(`${operationName} failed after ${maxRetries + 1} attempts`);
+}
+
+/**
+ * Submit test with retry logic
+ * Requirements: P2 Requirements 3.1, 3.3, 3.4
+ * 
+ * Wraps test submission with connection validation and retry logic
+ */
+async function submitTestWithRetry(sessionId: string) {
+  return retryWithBackoff(async () => {
+    // Submit test
+    const submitResult = await testExecution.submitTest(sessionId);
+
+    if (!submitResult.ok) {
+      throw new Error(submitResult.error.reason);
+    }
+
+    const submission = submitResult.value;
+
+    // Evaluate test
+    const evalResult = await evaluator.evaluateTest(submission);
+
+    if (!evalResult.ok) {
+      throw new Error(evalResult.error.reason);
+    }
+
+    const evaluation = evalResult.value;
+
+    // Generate performance report
+    const report = await feedbackEngine.generatePerformanceReport(evaluation, submission.testId);
+
+    return {
+      submission,
+      evaluation,
+      report,
+    };
+  }, 3, 'Test submission');
+}
 
 export async function testRoutes(fastify: FastifyInstance) {
   // Generate new test
@@ -305,55 +425,48 @@ export async function testRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Submit test
-      const submitResult = await testExecution.submitTest(sessionId);
-
-      if (!submitResult.ok) {
-        return reply.status(400).send({
-          error: 'Failed to submit test',
-          message: submitResult.error.reason,
-        });
-      }
-
-      const submission = submitResult.value;
-
-      // Evaluate test
-      const evalResult = await evaluator.evaluateTest(submission);
-
-      if (!evalResult.ok) {
-        return reply.status(500).send({
-          error: 'Failed to evaluate test',
-          message: evalResult.error.reason,
-        });
-      }
-
-      const evaluation = evalResult.value;
-
-      // Generate performance report
-      const report = await feedbackEngine.generatePerformanceReport(evaluation, submission.testId);
+      // Submit test with retry logic
+      // Requirements: P2 Requirements 3.1, 3.3, 3.4
+      const result = await submitTestWithRetry(sessionId);
 
       return reply.send({
         success: true,
-        testId: submission.testId,
-        submittedAt: submission.submittedAt,
+        testId: result.submission.testId,
+        submittedAt: result.submission.submittedAt,
         evaluation: {
-          evaluationId: evaluation.evaluationId,
-          overallScore: evaluation.overallScore,
-          correctCount: evaluation.correctCount,
-          totalCount: evaluation.totalCount,
-          topicScores: evaluation.topicScores,
+          evaluationId: result.evaluation.evaluationId,
+          overallScore: result.evaluation.overallScore,
+          correctCount: result.evaluation.correctCount,
+          totalCount: result.evaluation.totalCount,
+          topicScores: result.evaluation.topicScores,
         },
         report: {
-          reportId: report.reportId,
-          weakTopics: report.weakTopics,
-          suggestions: report.suggestions,
+          reportId: result.report.reportId,
+          weakTopics: result.report.weakTopics,
+          suggestions: result.report.suggestions,
         },
       });
     } catch (error) {
       fastify.log.error(error);
+      
+      // Check if error is connection-related
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const isConnectionError = 
+        errorMessage.includes('connection') ||
+        errorMessage.includes('timeout') ||
+        errorMessage.includes('pool');
+
+      // Return 503 for connection pool issues (Requirement 3.5)
+      if (isConnectionError) {
+        return reply.status(503).send({
+          error: 'Service temporarily unavailable',
+          message: 'Database connection pool is currently unavailable. Please try again in a moment.',
+        });
+      }
+
       return reply.status(500).send({
         error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Unknown error',
+        message: errorMessage,
       });
     }
   });

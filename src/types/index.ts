@@ -95,6 +95,7 @@ export type Question = {
   questionType: QuestionType;
   options?: string[]; // for multiple choice
   correctAnswer: string;
+  allowMultipleAnswers?: boolean; // P2 Requirement 4.1 - indicates if question accepts multiple correct answers
   solutionSteps?: string[]; // Step-by-step solution explanation
   syllabusReference: string;
   difficulty: 'ExamRealistic';

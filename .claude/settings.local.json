@@ -7,7 +7,14 @@
       "Bash(timeout 5 npx tsx:*)",
       "Bash(PORT=3001 timeout 5 npx tsx:*)",
       "Bash(npm run build:*)",
-      "Bash(PORT=3002 timeout 5 npx tsx:*)"
+      "Bash(PORT=3002 timeout 5 npx tsx:*)",
+      "Bash(npx prisma:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push)",
+      "Bash(npx neonctl@latest projects create:*)",
+      "Bash(curl:*)",
+      "Bash(npx tsx:*)"
     ]
   }
 }

@@ -263,13 +263,17 @@ export async function generateQuestionPaper(
       doc.moveDown(0.5);
 
       // Options for multiple choice questions
+      // P2 Requirement 4.4: Render checkboxes for multiple-answer questions
       if (question.questionType === 'MultipleChoice' && question.options) {
+        const isMultipleAnswer = question.allowMultipleAnswers || false;
+        const symbol = isMultipleAnswer ? '☐' : '○'; // Checkbox for multi-answer, circle for single
+        
         question.options.forEach((option, optIndex) => {
           const optionLabel = String.fromCharCode(65 + optIndex); // A, B, C, D...
           doc
             .fontSize(10)
             .font('Helvetica')
-            .text(`${optionLabel}. ${option}`, {
+            .text(`${symbol} ${optionLabel}. ${option}`, {
               indent: 40,
             });
           doc.moveDown(0.2);
@@ -385,13 +389,17 @@ export async function generateAnswerKey(
       doc.moveDown(0.5);
 
       // Options for multiple choice questions with spacing (Requirement 1.5)
+      // P2 Requirement 4.4: Render checkboxes for multiple-answer questions
       if (question.questionType === 'MultipleChoice' && question.options) {
+        const isMultipleAnswer = question.allowMultipleAnswers || false;
+        const symbol = isMultipleAnswer ? '☐' : '○'; // Checkbox for multi-answer, circle for single
+        
         question.options.forEach((option, optIndex) => {
           const optionLabel = String.fromCharCode(65 + optIndex); // A, B, C, D...
           doc
             .fontSize(10)
             .font('Helvetica')
-            .text(`${optionLabel}. ${option}`, {
+            .text(`${symbol} ${optionLabel}. ${option}`, {
               indent: 40,
             });
           // Add spacing between options (8px) - Requirement 1.5
@@ -401,13 +409,29 @@ export async function generateAnswerKey(
 
       doc.moveDown(0.3);
 
-      // Correct answer
+      // Correct answer - P2 Requirement 4.5: Mark all correct answers for multi-answer questions
       const correctAnswer = test.answerKey.get(question.questionId);
+      let correctAnswerText = 'N/A';
+      
+      if (correctAnswer) {
+        // Try to parse as JSON array for multiple answers
+        try {
+          const parsedAnswer = JSON.parse(correctAnswer);
+          if (Array.isArray(parsedAnswer)) {
+            correctAnswerText = parsedAnswer.join(', ');
+          } else {
+            correctAnswerText = correctAnswer;
+          }
+        } catch {
+          correctAnswerText = correctAnswer;
+        }
+      }
+      
       doc
         .fontSize(10)
         .font('Helvetica-Bold')
         .fillColor('green')
-        .text(`Correct Answer: ${correctAnswer || 'N/A'}`, { indent: 20 });
+        .text(`Correct Answer: ${correctAnswerText}`, { indent: 20 });
 
       doc.fillColor('black');
 
@@ -632,13 +656,17 @@ function generateTestContent(
     doc.moveDown(0.5);
 
     // Options for multiple choice questions
+    // P2 Requirement 4.4: Render checkboxes for multiple-answer questions
     if (question.questionType === 'MultipleChoice' && question.options) {
+      const isMultipleAnswer = question.allowMultipleAnswers || false;
+      const symbol = isMultipleAnswer ? '☐' : '○'; // Checkbox for multi-answer, circle for single
+      
       question.options.forEach((option, optIndex) => {
         const optionLabel = String.fromCharCode(65 + optIndex); // A, B, C, D...
         doc
           .fontSize(10)
           .font('Helvetica')
-          .text(`${optionLabel}. ${option}`, {
+          .text(`${symbol} ${optionLabel}. ${option}`, {
             indent: 40,
           });
         doc.moveDown(0.2);
@@ -745,13 +773,17 @@ function generateAnswerKeyContent(doc: PDFKit.PDFDocument, test: MockTest): void
     doc.moveDown(0.5);
 
     // Options for multiple choice questions
+    // P2 Requirement 4.4: Render checkboxes for multiple-answer questions
     if (question.questionType === 'MultipleChoice' && question.options) {
+      const isMultipleAnswer = question.allowMultipleAnswers || false;
+      const symbol = isMultipleAnswer ? '☐' : '○'; // Checkbox for multi-answer, circle for single
+      
       question.options.forEach((option, optIndex) => {
         const optionLabel = String.fromCharCode(65 + optIndex); // A, B, C, D...
         doc
           .fontSize(10)
           .font('Helvetica')
-          .text(`${optionLabel}. ${option}`, {
+          .text(`${symbol} ${optionLabel}. ${option}`, {
             indent: 40,
           });
         doc.moveDown(0.2);

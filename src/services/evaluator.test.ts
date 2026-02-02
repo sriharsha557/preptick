@@ -3,7 +3,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { EvaluatorService } from './evaluator';
 import { PrismaClient } from '@prisma/client';
-import { TestSubmission, QuestionType } from '../types';
+import { TestSubmission } from '../types';
 
 // Mock Prisma Client
 const mockPrisma = {
@@ -61,7 +61,6 @@ describe('EvaluatorService', () => {
   describe('evaluateTest', () => {
     it('should calculate overall score correctly', async () => {
       const testId = 'test-1';
-      const userId = 'user-1';
       
       const mockTest = {
         id: testId,
@@ -122,7 +121,6 @@ describe('EvaluatorService', () => {
 
     it('should calculate per-topic scores', async () => {
       const testId = 'test-1';
-      const userId = 'user-1';
       
       const mockTest = {
         id: testId,
@@ -193,7 +191,6 @@ describe('EvaluatorService', () => {
 
     it('should handle empty responses', async () => {
       const testId = 'test-1';
-      const userId = 'user-1';
       
       const mockTest = {
         id: testId,
@@ -291,6 +288,104 @@ describe('EvaluatorService', () => {
       if (!result.ok) {
         expect(result.error.type).toBe('NotFound');
       }
+    });
+  });
+
+  describe('calculatePartialCredit', () => {
+    it('should award full credit when all correct answers selected and no incorrect', () => {
+      const userAnswers = ['A', 'B', 'C'];
+      const correctAnswers = ['A', 'B', 'C'];
+      const points = 1;
+      
+      const credit = evaluator.calculatePartialCredit(userAnswers, correctAnswers, points);
+      expect(credit).toBe(1);
+    });
+
+    it('should award zero credit when all answers are incorrect', () => {
+      const userAnswers = ['D', 'E'];
+      const correctAnswers = ['A', 'B', 'C'];
+      const points = 1;
+      
+      const credit = evaluator.calculatePartialCredit(userAnswers, correctAnswers, points);
+      expect(credit).toBe(0);
+    });
+
+    it('should calculate partial credit for mixed correct/incorrect', () => {
+      const userAnswers = ['A', 'B', 'D']; // 2 correct, 1 incorrect
+      const correctAnswers = ['A', 'B', 'C']; // 3 total correct
+      const points = 1;
+      
+      // Formula: max(0, (2 - 1) / 3) * 1 = 1/3 ≈ 0.333
+      const credit = evaluator.calculatePartialCredit(userAnswers, correctAnswers, points);
+      expect(credit).toBeCloseTo(0.333, 2);
+    });
+
+    it('should award zero credit when incorrect selections exceed correct', () => {
+      const userAnswers = ['A', 'D', 'E', 'F']; // 1 correct, 3 incorrect
+      const correctAnswers = ['A', 'B', 'C']; // 3 total correct
+      const points = 1;
+      
+      // Formula: max(0, (1 - 3) / 3) * 1 = max(0, -2/3) = 0
+      const credit = evaluator.calculatePartialCredit(userAnswers, correctAnswers, points);
+      expect(credit).toBe(0);
+    });
+
+    it('should award zero credit when no answers selected', () => {
+      const userAnswers: string[] = [];
+      const correctAnswers = ['A', 'B', 'C'];
+      const points = 1;
+      
+      const credit = evaluator.calculatePartialCredit(userAnswers, correctAnswers, points);
+      expect(credit).toBe(0);
+    });
+
+    it('should scale credit by points value', () => {
+      const userAnswers = ['A', 'B'];
+      const correctAnswers = ['A', 'B', 'C']; // 2/3 correct
+      const points = 3;
+      
+      // Formula: (2 - 0) / 3 * 3 = 2
+      const credit = evaluator.calculatePartialCredit(userAnswers, correctAnswers, points);
+      expect(credit).toBe(2);
+    });
+
+    it('should be case-insensitive', () => {
+      const userAnswers = ['a', 'B', 'c'];
+      const correctAnswers = ['A', 'b', 'C'];
+      const points = 1;
+      
+      const credit = evaluator.calculatePartialCredit(userAnswers, correctAnswers, points);
+      expect(credit).toBe(1);
+    });
+  });
+
+  describe('compareAnswers - multiple answer support', () => {
+    it('should compare array answers correctly', () => {
+      const userAnswers = ['A', 'B', 'C'];
+      const correctAnswers = ['A', 'B', 'C'];
+      
+      expect(evaluator.compareAnswers(userAnswers, correctAnswers, 'MultipleChoice')).toBe(true);
+    });
+
+    it('should return false for partial matches', () => {
+      const userAnswers = ['A', 'B'];
+      const correctAnswers = ['A', 'B', 'C'];
+      
+      expect(evaluator.compareAnswers(userAnswers, correctAnswers, 'MultipleChoice')).toBe(false);
+    });
+
+    it('should return false for incorrect array answers', () => {
+      const userAnswers = ['A', 'B', 'D'];
+      const correctAnswers = ['A', 'B', 'C'];
+      
+      expect(evaluator.compareAnswers(userAnswers, correctAnswers, 'MultipleChoice')).toBe(false);
+    });
+
+    it('should handle order-independent comparison', () => {
+      const userAnswers = ['C', 'A', 'B'];
+      const correctAnswers = ['A', 'B', 'C'];
+      
+      expect(evaluator.compareAnswers(userAnswers, correctAnswers, 'MultipleChoice')).toBe(true);
     });
   });
 });

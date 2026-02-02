@@ -26,20 +26,30 @@ export class EvaluatorService {
 
   /**
    * Compare user answer with correct answer
-   * Requirements: 8.1
+   * Requirements: 8.1, P2 4.2
    * 
    * Handles different question types with appropriate comparison logic
-   * - Multiple choice: exact match
+   * - Multiple choice: exact match (single answer) or array comparison (multiple answers)
    * - Short answer: case-insensitive, whitespace-tolerant
    * - Numerical: exact match after normalization
    */
   compareAnswers(
-    userAnswer: string,
-    correctAnswer: string,
+    userAnswer: string | string[],
+    correctAnswer: string | string[],
     questionType: QuestionType
   ): boolean {
-    const normalizedUser = this.normalizeAnswer(userAnswer);
-    const normalizedCorrect = this.normalizeAnswer(correctAnswer);
+    // Handle array answers for multiple-answer questions
+    if (Array.isArray(correctAnswer)) {
+      const userAnswers = Array.isArray(userAnswer) ? userAnswer : [userAnswer];
+      return this.compareArrayAnswers(userAnswers, correctAnswer);
+    }
+
+    // Single answer comparison
+    const userStr = Array.isArray(userAnswer) ? userAnswer[0] || '' : userAnswer;
+    const correctStr = Array.isArray(correctAnswer) ? correctAnswer[0] || '' : correctAnswer;
+    
+    const normalizedUser = this.normalizeAnswer(userStr);
+    const normalizedCorrect = this.normalizeAnswer(correctStr);
 
     switch (questionType) {
       case 'MultipleChoice':
@@ -69,6 +79,61 @@ export class EvaluatorService {
   }
 
   /**
+   * Compare array answers for multiple-answer questions
+   * Requirements: P2 4.2
+   * 
+   * Returns true only if all correct answers are selected and no incorrect answers
+   */
+  private compareArrayAnswers(userAnswers: string[], correctAnswers: string[]): boolean {
+    const normalizedUser = userAnswers.map(a => this.normalizeAnswer(a)).sort();
+    const normalizedCorrect = correctAnswers.map(a => this.normalizeAnswer(a)).sort();
+    
+    if (normalizedUser.length !== normalizedCorrect.length) {
+      return false;
+    }
+    
+    return normalizedUser.every((answer, index) => answer === normalizedCorrect[index]);
+  }
+
+  /**
+   * Calculate partial credit for multiple-answer questions
+   * Requirements: P2 4.2, 4.6
+   * 
+   * Formula: max(0, (correct_selections - incorrect_selections) / total_correct_answers) * points
+   * 
+   * @param userAnswers - Array of user-selected answers
+   * @param correctAnswers - Array of correct answers
+   * @param points - Total points for the question
+   * @returns Points earned (0 to points)
+   */
+  calculatePartialCredit(
+    userAnswers: string[],
+    correctAnswers: string[],
+    points: number = 1
+  ): number {
+    const normalizedUser = userAnswers.map(a => this.normalizeAnswer(a));
+    const normalizedCorrect = correctAnswers.map(a => this.normalizeAnswer(a));
+    
+    // Count correct and incorrect selections
+    let correctSelections = 0;
+    let incorrectSelections = 0;
+    
+    for (const answer of normalizedUser) {
+      if (normalizedCorrect.includes(answer)) {
+        correctSelections++;
+      } else {
+        incorrectSelections++;
+      }
+    }
+    
+    // Calculate partial credit using the formula
+    const totalCorrect = normalizedCorrect.length;
+    const creditRatio = Math.max(0, (correctSelections - incorrectSelections) / totalCorrect);
+    
+    return creditRatio * points;
+  }
+
+  /**
    * Normalize answer for comparison
    * Removes extra whitespace and converts to lowercase
    */
@@ -78,10 +143,11 @@ export class EvaluatorService {
 
   /**
    * Evaluate a submitted test
-   * Requirements: 8.1, 8.2, 8.3, 8.4, 8.5
+   * Requirements: 8.1, 8.2, 8.3, 8.4, 8.5, P2 4.2, 4.6
    * 
    * Compares all responses against answer key
    * Calculates overall score and per-topic scores
+   * Supports partial credit for multiple-answer questions
    * Identifies weak topics (< 60% accuracy)
    * Generates performance report
    */
@@ -119,8 +185,10 @@ export class EvaluatorService {
 
       // Calculate overall score
       let correctCount = 0;
+      let totalPoints = 0;
+      let earnedPoints = 0;
       const totalCount = test.testQuestions.length;
-      const topicScoreMap = new Map<TopicId, { correct: number; total: number; name: string }>();
+      const topicScoreMap = new Map<TopicId, { correct: number; total: number; name: string; points: number; earned: number }>();
 
       // Evaluate each question
       for (const tq of test.testQuestions) {
@@ -129,9 +197,43 @@ export class EvaluatorService {
         const userAnswer = userResponse?.answer || '';
         const correctAnswer = question.correctAnswer;
         const questionType = question.questionType as QuestionType;
+        const questionPoints = 1; // Default 1 point per question
 
-        // Compare answers
-        const isCorrect = this.compareAnswers(userAnswer, correctAnswer, questionType);
+        totalPoints += questionPoints;
+
+        // Handle multiple-answer questions with partial credit
+        let isCorrect = false;
+        let pointsEarned = 0;
+
+        // Check if correctAnswer is stored as JSON array (multiple answers)
+        let correctAnswerParsed: string | string[];
+        try {
+          correctAnswerParsed = JSON.parse(correctAnswer);
+        } catch {
+          correctAnswerParsed = correctAnswer;
+        }
+
+        // Parse user answer if it's JSON
+        let userAnswerParsed: string | string[];
+        try {
+          userAnswerParsed = JSON.parse(userAnswer);
+        } catch {
+          userAnswerParsed = userAnswer;
+        }
+
+        // Evaluate based on answer type
+        if (Array.isArray(correctAnswerParsed)) {
+          // Multiple-answer question - calculate partial credit
+          const userAnswers = Array.isArray(userAnswerParsed) ? userAnswerParsed : [userAnswerParsed];
+          pointsEarned = this.calculatePartialCredit(userAnswers, correctAnswerParsed, questionPoints);
+          isCorrect = pointsEarned === questionPoints; // Full credit means correct
+        } else {
+          // Single-answer question - binary correct/incorrect
+          isCorrect = this.compareAnswers(userAnswerParsed, correctAnswerParsed, questionType);
+          pointsEarned = isCorrect ? questionPoints : 0;
+        }
+
+        earnedPoints += pointsEarned;
         
         if (isCorrect) {
           correctCount++;
@@ -142,18 +244,20 @@ export class EvaluatorService {
         const topicName = question.topic.topicName;
         
         if (!topicScoreMap.has(topicId)) {
-          topicScoreMap.set(topicId, { correct: 0, total: 0, name: topicName });
+          topicScoreMap.set(topicId, { correct: 0, total: 0, name: topicName, points: 0, earned: 0 });
         }
         
         const topicScore = topicScoreMap.get(topicId)!;
         topicScore.total++;
+        topicScore.points += questionPoints;
+        topicScore.earned += pointsEarned;
         if (isCorrect) {
           topicScore.correct++;
         }
       }
 
-      // Calculate overall score percentage
-      const overallScore = totalCount > 0 ? (correctCount / totalCount) * 100 : 0;
+      // Calculate overall score percentage based on points
+      const overallScore = totalPoints > 0 ? (earnedPoints / totalPoints) * 100 : 0;
 
       // Build topic scores array
       const topicScores: TopicScore[] = Array.from(topicScoreMap.entries()).map(
@@ -162,7 +266,7 @@ export class EvaluatorService {
           topicName: data.name,
           correct: data.correct,
           total: data.total,
-          percentage: data.total > 0 ? (data.correct / data.total) * 100 : 0,
+          percentage: data.points > 0 ? (data.earned / data.points) * 100 : 0,
         })
       );
 

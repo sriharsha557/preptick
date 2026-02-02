@@ -59,19 +59,53 @@ export interface ConnectionPoolMetrics {
 
 /**
  * Get current connection pool metrics
- * Note: Prisma doesn't expose direct pool metrics, so this is a placeholder
- * for future implementation with monitoring tools
+ * Queries PostgreSQL system tables to get real-time connection information
+ * Requirements: P2 Requirement 3.2
  */
-export function getPoolMetrics(): ConnectionPoolMetrics {
-  // Prisma doesn't expose connection pool metrics directly
-  // This would need to be implemented with database-specific queries
-  // or monitoring tools like Prisma Pulse
-  return {
-    activeConnections: 0,
-    idleConnections: 0,
-    totalConnections: 0,
-    utilizationPercent: 0,
-  };
+export async function getPoolMetrics(): Promise<ConnectionPoolMetrics> {
+  try {
+    // Query PostgreSQL to get connection statistics
+    // This queries pg_stat_activity to count connections from this application
+    const result = await prisma.$queryRaw<Array<{
+      active: bigint;
+      idle: bigint;
+      total: bigint;
+    }>>`
+      SELECT 
+        COUNT(*) FILTER (WHERE state = 'active') as active,
+        COUNT(*) FILTER (WHERE state = 'idle') as idle,
+        COUNT(*) as total
+      FROM pg_stat_activity
+      WHERE datname = current_database()
+        AND usename = current_user
+        AND pid != pg_backend_pid()
+    `;
+
+    const stats = result[0];
+    const activeConnections = Number(stats.active);
+    const idleConnections = Number(stats.idle);
+    const totalConnections = Number(stats.total);
+    
+    // Calculate utilization percentage based on max connections (10)
+    const maxConnections = 10;
+    const utilizationPercent = (totalConnections / maxConnections) * 100;
+
+    return {
+      activeConnections,
+      idleConnections,
+      totalConnections,
+      utilizationPercent,
+    };
+  } catch (error) {
+    // If we can't get metrics, return zeros and log the error
+    console.error('[Connection Pool] Failed to get metrics:', error);
+    return {
+      activeConnections: 0,
+      idleConnections: 0,
+      totalConnections: 0,
+      utilizationPercent: 0,
+    };
+  }
 }
 
 /**
