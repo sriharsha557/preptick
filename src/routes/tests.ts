@@ -537,7 +537,7 @@ export async function testRoutes(fastify: FastifyInstance) {
       const evaluation = evalResult.value;
 
       // Get performance report
-      const reportResult = await performanceHistory.getPerformanceReport(testId);
+      const reportResult = await performanceHistory.getHistoricalPerformanceReport(testId);
 
       if (!reportResult.ok) {
         return reply.status(404).send({
