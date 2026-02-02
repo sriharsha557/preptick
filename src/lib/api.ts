@@ -47,8 +47,8 @@ async function refreshTokenIfNeeded(): Promise<string | null> {
   if (!token) return null;
 
   try {
-    // Import supabase dynamically to avoid circular dependencies
-    const { supabase } = await import('../lib/supabase');
+    // Import supabase from supabaseClient (not supabase.ts to avoid circular deps)
+    const { supabase } = await import('./supabaseClient');
     
     // Try to refresh the session
     const { data, error } = await supabase.auth.refreshSession();
