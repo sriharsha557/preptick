@@ -342,7 +342,20 @@ export async function generateAnswerKey(
       doc.fillColor('black');
 
       // Add solution steps (Requirement 4.4)
-      addSolutionSteps(doc, question.solutionSteps);
+      // Parse solutionSteps from JSON string if needed
+      let solutionSteps: string[] | undefined;
+      if (question.solutionSteps) {
+        if (typeof question.solutionSteps === 'string') {
+          try {
+            solutionSteps = JSON.parse(question.solutionSteps);
+          } catch {
+            solutionSteps = undefined;
+          }
+        } else if (Array.isArray(question.solutionSteps)) {
+          solutionSteps = question.solutionSteps;
+        }
+      }
+      addSolutionSteps(doc, solutionSteps);
 
       // Syllabus reference
       doc

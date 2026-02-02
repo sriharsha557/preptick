@@ -16,6 +16,7 @@ const GenerateTestPage: React.FC = () => {
   const [error, setError] = useState('');
   const [subjects] = useState(['Mathematics', 'Science', 'English']);
   const [topics, setTopics] = useState<Topic[]>([]);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
 
   // Custom topic state
   const [showCustomTopic, setShowCustomTopic] = useState(false);
@@ -35,6 +36,50 @@ const GenerateTestPage: React.FC = () => {
     testMode: 'InAppExam' as 'InAppExam' | 'PDFDownload',
     includeAnswers: true,
   });
+
+  // State for dual PDF downloads (Requirement 3.1)
+  const [generatedTestId, setGeneratedTestId] = useState<string | null>(null);
+
+  // Fetch user profile on mount to auto-populate grade
+  // Requirements: 1.1, 1.2, 1.4, 1.5
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      try {
+        const profile = await apiGet<{
+          id: string;
+          email: string;
+          name: string;
+          grade?: number;
+          subjects?: string;
+          curriculum?: string;
+        }>('/api/users/profile');
+
+        // Auto-populate grade if available (Requirement 1.2)
+        if (profile.grade) {
+          setFormData(prev => ({
+            ...prev,
+            grade: profile.grade!,
+          }));
+        }
+
+        // Auto-populate curriculum if available
+        if (profile.curriculum) {
+          setFormData(prev => ({
+            ...prev,
+            curriculum: profile.curriculum!,
+          }));
+        }
+      } catch (error) {
+        // Log error but don't block the user (Requirement 1.5)
+        console.error('Failed to fetch profile:', error);
+        // Leave grade field at default value for manual entry (Requirement 1.4)
+      } finally {
+        setIsLoadingProfile(false);
+      }
+    };
+
+    fetchUserProfile();
+  }, []);
 
   useEffect(() => {
     // Load topics for selected subject, curriculum, and grade
@@ -192,12 +237,9 @@ const GenerateTestPage: React.FC = () => {
 
       const testId = data.tests[0].testId;
 
-      // If PDF mode, download the PDF
+      // If PDF mode, store test ID and show download buttons (Requirement 3.4)
       if (formData.testMode === 'PDFDownload') {
-        // Use getApiUrl to get the correct PDF URL with user's answer preference
-        const pdfUrl = getApiUrl(`/api/tests/${testId}/pdf?includeAnswers=${formData.includeAnswers}`);
-        window.open(pdfUrl, '_blank');
-        navigate('/dashboard');
+        setGeneratedTestId(testId);
       } else {
         // Navigate to test execution page for online exam
         navigate(`/test/${testId}`);
@@ -213,6 +255,20 @@ const GenerateTestPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Download question paper PDF (Requirement 3.5)
+  const handleDownloadQuestions = () => {
+    if (!generatedTestId) return;
+    const pdfUrl = getApiUrl(`/api/tests/${generatedTestId}/download/questions`);
+    window.open(pdfUrl, '_blank');
+  };
+
+  // Download answer key PDF (Requirement 3.6)
+  const handleDownloadAnswers = () => {
+    if (!generatedTestId) return;
+    const pdfUrl = getApiUrl(`/api/tests/${generatedTestId}/download/answers`);
+    window.open(pdfUrl, '_blank');
   };
 
   return (
@@ -383,28 +439,42 @@ const GenerateTestPage: React.FC = () => {
               </div>
             </div>
 
-            {formData.testMode === 'PDFDownload' && (
-              <div className="form-section">
-                <label className="checkbox-option">
-                  <input
-                    type="checkbox"
-                    checked={formData.includeAnswers}
-                    onChange={(e) => setFormData({ ...formData, includeAnswers: e.target.checked })}
-                  />
-                  <span>Include Answer Key</span>
-                  <p className="option-description">Add answer key on separate pages at the end of the PDF</p>
-                </label>
-              </div>
-            )}
-
             <button
               type="submit"
               className="generate-button"
-              disabled={loading || formData.selectedTopics.length === 0}
+              disabled={loading || formData.selectedTopics.length === 0 || (formData.testMode === 'PDFDownload' && generatedTestId !== null)}
             >
-              {loading ? 'Generating Test...' : formData.testMode === 'PDFDownload' ? 'Generate & Download PDF' : 'Generate Test'}
+              {loading ? 'Generating Test...' : formData.testMode === 'PDFDownload' ? 'Generate Test' : 'Generate Test'}
             </button>
           </form>
+
+          {/* Dual PDF Download Buttons (Requirements: 3.4, 3.5, 3.6) */}
+          {formData.testMode === 'PDFDownload' && generatedTestId && (
+            <div className="pdf-download-section">
+              <h2>Test Generated Successfully!</h2>
+              <p>Download your test materials below:</p>
+              <div className="download-buttons">
+                <button
+                  onClick={handleDownloadQuestions}
+                  className="download-button download-questions"
+                >
+                  📄 Download Question Paper
+                </button>
+                <button
+                  onClick={handleDownloadAnswers}
+                  className="download-button download-answers"
+                >
+                  ✅ Download Answer Key
+                </button>
+              </div>
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="back-button"
+              >
+                Back to Dashboard
+              </button>
+            </div>
+          )}
         </div>
       </main>
       

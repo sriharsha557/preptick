@@ -554,6 +554,102 @@ export async function testRoutes(fastify: FastifyInstance) {
     }
   });
 
+  // Download question paper PDF (without answers)
+  // Requirement 3.5: Serve question paper PDF
+  fastify.get('/api/tests/:testId/download/questions', async (
+    request: FastifyRequest<{ Params: { testId: string } }>,
+    reply: FastifyReply
+  ) => {
+    try {
+      const { testId } = request.params;
+
+      // Get test from database
+      const test = await prisma.test.findUnique({
+        where: { id: testId },
+        select: {
+          id: true,
+          userId: true,
+          questionPaperPDF: true,
+        },
+      });
+
+      if (!test) {
+        return reply.status(404).send({
+          error: 'Test not found',
+          message: `Test with ID ${testId} not found`,
+        });
+      }
+
+      // Check if PDF exists
+      if (!test.questionPaperPDF) {
+        return reply.status(404).send({
+          error: 'PDF not found',
+          message: 'Question paper PDF not available for this test',
+        });
+      }
+
+      // Set headers for PDF download
+      reply.header('Content-Type', 'application/pdf');
+      reply.header('Content-Disposition', `attachment; filename="test-${testId}-questions.pdf"`);
+      
+      return reply.send(test.questionPaperPDF);
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.status(500).send({
+        error: 'Internal server error',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  });
+
+  // Download answer key PDF (with answers and solutions)
+  // Requirement 3.6: Serve answer key PDF
+  fastify.get('/api/tests/:testId/download/answers', async (
+    request: FastifyRequest<{ Params: { testId: string } }>,
+    reply: FastifyReply
+  ) => {
+    try {
+      const { testId } = request.params;
+
+      // Get test from database
+      const test = await prisma.test.findUnique({
+        where: { id: testId },
+        select: {
+          id: true,
+          userId: true,
+          answerKeyPDF: true,
+        },
+      });
+
+      if (!test) {
+        return reply.status(404).send({
+          error: 'Test not found',
+          message: `Test with ID ${testId} not found`,
+        });
+      }
+
+      // Check if PDF exists
+      if (!test.answerKeyPDF) {
+        return reply.status(404).send({
+          error: 'PDF not found',
+          message: 'Answer key PDF not available for this test',
+        });
+      }
+
+      // Set headers for PDF download
+      reply.header('Content-Type', 'application/pdf');
+      reply.header('Content-Disposition', `attachment; filename="test-${testId}-answers.pdf"`);
+      
+      return reply.send(test.answerKeyPDF);
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.status(500).send({
+        error: 'Internal server error',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  });
+
   // Retry test (generate similar test)
   fastify.post('/api/tests/:testId/retry', async (
     request: FastifyRequest<{ 

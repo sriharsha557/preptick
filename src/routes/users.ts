@@ -17,6 +17,63 @@ interface UpdateProfileBody {
 }
 
 export async function userRoutes(fastify: FastifyInstance) {
+  // Get current user's profile - requires authentication
+  // Requirement 1.1, 1.2: Fetch user profile for grade auto-population
+  fastify.get('/api/users/profile', {
+    preHandler: [authenticate],
+  }, async (
+    request: FastifyRequest,
+    reply: FastifyReply
+  ) => {
+    try {
+      // Get user ID from authentication token
+      const userId = (request as any).user?.id;
+
+      if (!userId) {
+        return reply.status(401).send({
+          success: false,
+          error: {
+            code: 'UNAUTHORIZED',
+            message: 'Authentication required',
+          },
+        });
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          grade: true,
+          subjects: true,
+          curriculum: true,
+        },
+      });
+
+      if (!user) {
+        return reply.status(404).send({
+          success: false,
+          error: {
+            code: 'NOT_FOUND',
+            message: 'User not found',
+          },
+        });
+      }
+
+      return reply.send(user);
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.status(500).send({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        },
+      });
+    }
+  });
+
   // Get user profile - requires authentication
   fastify.get('/api/users/:userId/profile', {
     preHandler: [authenticate],
