@@ -195,7 +195,8 @@ export class EvaluatorService {
         const question = tq.question;
         const userResponse = responses.get(question.id);
         const userAnswer = userResponse?.answer || '';
-        const correctAnswer = question.correctAnswer;
+        // Database field is 'correctAnswers' (plural, JSON array)
+        const correctAnswers = question.correctAnswers || '[]';
         const questionType = question.questionType as QuestionType;
         const questionPoints = 1; // Default 1 point per question
 
@@ -205,12 +206,12 @@ export class EvaluatorService {
         let isCorrect = false;
         let pointsEarned = 0;
 
-        // Check if correctAnswer is stored as JSON array (multiple answers)
+        // Parse correctAnswers from JSON array
         let correctAnswerParsed: string | string[];
         try {
-          correctAnswerParsed = JSON.parse(correctAnswer);
+          correctAnswerParsed = JSON.parse(correctAnswers);
         } catch {
-          correctAnswerParsed = correctAnswer;
+          correctAnswerParsed = correctAnswers;
         }
 
         // Parse user answer if it's JSON

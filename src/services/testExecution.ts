@@ -201,7 +201,13 @@ export class TestExecutionService {
         questionText: tq.question.questionText,
         questionType: tq.question.questionType as 'MultipleChoice' | 'ShortAnswer' | 'Numerical',
         options: tq.question.options ? JSON.parse(tq.question.options) : undefined,
-        correctAnswer: tq.question.correctAnswer,
+        // Parse correctAnswers from JSON array and get first answer for compatibility
+        correctAnswer: (() => {
+          try {
+            const parsed = JSON.parse(tq.question.correctAnswers || '[]');
+            return Array.isArray(parsed) ? parsed[0] || '' : parsed;
+          } catch { return tq.question.correctAnswers || ''; }
+        })(),
         syllabusReference: tq.question.syllabusReference,
         difficulty: 'ExamRealistic' as const,
         createdAt: tq.question.createdAt,
@@ -427,7 +433,14 @@ export class TestExecutionService {
 
       const answerKey = new Map<QuestionId, string>();
       testQuestions.forEach(tq => {
-        answerKey.set(tq.question.id, tq.question.correctAnswer);
+        // Parse correctAnswers from JSON array and get first answer
+        try {
+          const parsed = JSON.parse(tq.question.correctAnswers || '[]');
+          const answer = Array.isArray(parsed) ? parsed[0] || '' : parsed;
+          answerKey.set(tq.question.id, answer);
+        } catch {
+          answerKey.set(tq.question.id, tq.question.correctAnswers || '');
+        }
       });
 
       return Ok(answerKey);
@@ -502,8 +515,15 @@ export class TestExecutionService {
       // Build comparison array
       const comparison = testQuestions.map(tq => {
         const userAnswer = responseMap.get(tq.question.id) || null;
-        const correctAnswer = tq.question.correctAnswer;
-        const isCorrect = userAnswer !== null && 
+        // Parse correctAnswers from JSON array
+        let correctAnswer: string;
+        try {
+          const parsed = JSON.parse(tq.question.correctAnswers || '[]');
+          correctAnswer = Array.isArray(parsed) ? parsed[0] || '' : parsed;
+        } catch {
+          correctAnswer = tq.question.correctAnswers || '';
+        }
+        const isCorrect = userAnswer !== null &&
           this.normalizeAnswer(userAnswer) === this.normalizeAnswer(correctAnswer);
 
         return {

@@ -666,13 +666,24 @@ export async function testRoutes(fastify: FastifyInstance) {
           questionText: tq.question.questionText,
           questionType: tq.question.questionType as 'MultipleChoice' | 'ShortAnswer' | 'Numerical',
           options: tq.question.options ? JSON.parse(tq.question.options) : undefined,
-          correctAnswer: tq.question.correctAnswer,
+          // Parse correctAnswers from JSON array
+          correctAnswer: (() => {
+            try {
+              const parsed = JSON.parse(tq.question.correctAnswers || '[]');
+              return Array.isArray(parsed) ? parsed[0] || '' : parsed;
+            } catch { return tq.question.correctAnswers || ''; }
+          })(),
           syllabusReference: tq.question.syllabusReference,
           difficulty: 'ExamRealistic' as const,
           createdAt: tq.question.createdAt,
         })),
         answerKey: new Map(
-          test.testQuestions.map(tq => [tq.question.id, tq.question.correctAnswer])
+          test.testQuestions.map(tq => {
+            try {
+              const parsed = JSON.parse(tq.question.correctAnswers || '[]');
+              return [tq.question.id, Array.isArray(parsed) ? parsed[0] || '' : parsed];
+            } catch { return [tq.question.id, tq.question.correctAnswers || '']; }
+          })
         ),
         createdAt: test.createdAt,
       };
@@ -748,7 +759,12 @@ export async function testRoutes(fastify: FastifyInstance) {
           questionText: tq.question.questionText,
           questionType: tq.question.questionType as 'MultipleChoice' | 'ShortAnswer' | 'Numerical',
           options: tq.question.options ? JSON.parse(tq.question.options) : undefined,
-          correctAnswer: tq.question.correctAnswer,
+          correctAnswer: (() => {
+            try {
+              const parsed = JSON.parse(tq.question.correctAnswers || '[]');
+              return Array.isArray(parsed) ? parsed[0] || '' : parsed;
+            } catch { return tq.question.correctAnswers || ''; }
+          })(),
           solutionSteps: tq.question.solutionSteps ? JSON.parse(tq.question.solutionSteps) : undefined,
           syllabusReference: tq.question.syllabusReference || '',
           difficulty: 'ExamRealistic' as const,
@@ -862,7 +878,12 @@ export async function testRoutes(fastify: FastifyInstance) {
           questionText: tq.question.questionText,
           questionType: tq.question.questionType as 'MultipleChoice' | 'ShortAnswer' | 'Numerical',
           options: tq.question.options ? JSON.parse(tq.question.options) : undefined,
-          correctAnswer: tq.question.correctAnswer,
+          correctAnswer: (() => {
+            try {
+              const parsed = JSON.parse(tq.question.correctAnswers || '[]');
+              return Array.isArray(parsed) ? parsed[0] || '' : parsed;
+            } catch { return tq.question.correctAnswers || ''; }
+          })(),
           solutionSteps: tq.question.solutionSteps ? JSON.parse(tq.question.solutionSteps) : undefined,
           syllabusReference: tq.question.syllabusReference || '',
           difficulty: 'ExamRealistic' as const,
