@@ -40,12 +40,45 @@ export class ApiError extends Error {
 }
 
 /**
+ * Refresh the Supabase token if needed
+ */
+async function refreshTokenIfNeeded(): Promise<string | null> {
+  const token = localStorage.getItem('token');
+  if (!token) return null;
+
+  try {
+    // Import supabase dynamically to avoid circular dependencies
+    const { supabase } = await import('../lib/supabase');
+    
+    // Try to refresh the session
+    const { data, error } = await supabase.auth.refreshSession();
+    
+    if (error || !data.session) {
+      console.error('Token refresh failed:', error);
+      // Clear invalid token
+      localStorage.removeItem('token');
+      localStorage.removeItem('userId');
+      localStorage.removeItem('userEmail');
+      return null;
+    }
+    
+    // Update token in localStorage
+    const newToken = data.session.access_token;
+    localStorage.setItem('token', newToken);
+    return newToken;
+  } catch (err) {
+    console.error('Error refreshing token:', err);
+    return token; // Return existing token as fallback
+  }
+}
+
+/**
  * Make an API request with the correct base URL and optional authentication
  * @deprecated Use the typed apiGet, apiPost, apiPut, apiDelete helpers instead
  */
 export async function apiRequest(endpoint: string, options?: RequestInit): Promise<Response> {
   const url = getApiUrl(endpoint);
-  const token = localStorage.getItem('token');
+  let token = localStorage.getItem('token');
 
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
@@ -57,10 +90,28 @@ export async function apiRequest(endpoint: string, options?: RequestInit): Promi
     (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
   }
 
-  return fetch(url, {
+  // Make the request
+  let response = await fetch(url, {
     ...options,
     headers,
   });
+
+  // If we get a 401, try refreshing the token once
+  if (response.status === 401 && token) {
+    console.log('Got 401, attempting token refresh...');
+    const newToken = await refreshTokenIfNeeded();
+    
+    if (newToken && newToken !== token) {
+      // Retry with new token
+      (headers as Record<string, string>)['Authorization'] = `Bearer ${newToken}`;
+      response = await fetch(url, {
+        ...options,
+        headers,
+      });
+    }
+  }
+
+  return response;
 }
 
 /**

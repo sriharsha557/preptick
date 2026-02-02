@@ -142,9 +142,9 @@ export class FeedbackEngine {
       await this.prisma.performanceReport.create({
         data: {
           id: reportId,
-          testId,
-          userId,
-          evaluationId: evaluation.evaluationId,
+          test: { connect: { id: testId } },
+          user: { connect: { id: userId } },
+          evaluation: { connect: { id: evaluation.evaluationId } },
           weakTopics: JSON.stringify(weakTopics),
           improvementSuggestions: JSON.stringify(suggestions),
           createdAt,

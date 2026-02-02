@@ -267,7 +267,12 @@ export class RAGRetrieverImpl implements RAGRetriever {
         questionText: dbQuestion.questionText,
         questionType: dbQuestion.questionType as any,
         options: dbQuestion.options ? JSON.parse(dbQuestion.options) : undefined,
-        correctAnswer: dbQuestion.correctAnswer,
+        correctAnswer: (() => {
+          try {
+            const parsed = JSON.parse(dbQuestion.correctAnswers || '[]');
+            return Array.isArray(parsed) ? parsed[0] || '' : parsed;
+          } catch { return dbQuestion.correctAnswers || ''; }
+        })(),
         syllabusReference: dbQuestion.syllabusReference,
         difficulty: 'ExamRealistic',
         createdAt: dbQuestion.createdAt,
