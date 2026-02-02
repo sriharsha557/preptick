@@ -545,6 +545,9 @@ export class TestGeneratorService {
     for (const question of questions) {
       try {
         // Use upsert to handle cases where question might already exist
+        // Format correct answer as JSON array (schema supports multiple correct answers)
+        const correctAnswersJson = JSON.stringify([question.correctAnswer]);
+
         await this.prisma.question.upsert({
           where: { id: question.questionId },
           update: {
@@ -552,7 +555,7 @@ export class TestGeneratorService {
             questionText: question.questionText,
             questionType: question.questionType,
             options: question.options ? JSON.stringify(question.options) : null,
-            correctAnswer: question.correctAnswer,
+            correctAnswers: correctAnswersJson,
             solutionSteps: question.solutionSteps ? JSON.stringify(question.solutionSteps) : '[]',
             syllabusReference: question.syllabusReference,
           },
@@ -562,7 +565,7 @@ export class TestGeneratorService {
             questionText: question.questionText,
             questionType: question.questionType,
             options: question.options ? JSON.stringify(question.options) : null,
-            correctAnswer: question.correctAnswer,
+            correctAnswers: correctAnswersJson,
             solutionSteps: question.solutionSteps ? JSON.stringify(question.solutionSteps) : '[]',
             syllabusReference: question.syllabusReference,
             createdAt: question.createdAt,
