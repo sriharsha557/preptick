@@ -18,6 +18,9 @@ const GenerateTestPage: React.FC = () => {
   const [topics, setTopics] = useState<Topic[]>([]);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
 
+  // Student metadata for PDF personalization (Requirement 9)
+  const [userName, setUserName] = useState<string>('');
+
   // Custom topic state
   const [showCustomTopic, setShowCustomTopic] = useState(false);
   const [customTopic, setCustomTopic] = useState('');
@@ -53,6 +56,11 @@ const GenerateTestPage: React.FC = () => {
           subjects?: string;
           curriculum?: string;
         }>('/api/users/profile');
+
+        // Store user name for PDF personalization (Requirement 9)
+        if (profile.name) {
+          setUserName(profile.name);
+        }
 
         // Auto-populate grade if available (Requirement 1.2)
         if (profile.grade) {
@@ -257,17 +265,27 @@ const GenerateTestPage: React.FC = () => {
     }
   };
 
-  // Download question paper PDF (Requirement 3.5)
+  // Download question paper PDF (Requirements: 3.5, 9)
   const handleDownloadQuestions = () => {
     if (!generatedTestId) return;
-    const pdfUrl = getApiUrl(`/api/tests/${generatedTestId}/download/questions`);
+    // Include student metadata for PDF personalization (Requirement 9)
+    const params = new URLSearchParams();
+    if (userName) params.set('studentName', userName);
+    params.set('grade', formData.grade.toString());
+    const queryString = params.toString();
+    const pdfUrl = getApiUrl(`/api/tests/${generatedTestId}/download/questions${queryString ? `?${queryString}` : ''}`);
     window.open(pdfUrl, '_blank');
   };
 
   // Download answer key PDF (Requirement 3.6)
   const handleDownloadAnswers = () => {
     if (!generatedTestId) return;
-    const pdfUrl = getApiUrl(`/api/tests/${generatedTestId}/download/answers`);
+    // Include student metadata for PDF personalization (Requirement 9)
+    const params = new URLSearchParams();
+    if (userName) params.set('studentName', userName);
+    params.set('grade', formData.grade.toString());
+    const queryString = params.toString();
+    const pdfUrl = getApiUrl(`/api/tests/${generatedTestId}/download/answers${queryString ? `?${queryString}` : ''}`);
     window.open(pdfUrl, '_blank');
   };
 

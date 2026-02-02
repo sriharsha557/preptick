@@ -9,7 +9,8 @@ import { FeedbackEngine } from '../services/feedbackEngine';
 import { PerformanceHistoryService } from '../services/performanceHistory';
 import { RAGRetrieverImpl } from '../services/ragRetriever';
 import { LLMQuestionGeneratorService } from '../services/llmQuestionGenerator';
-import { generatePDF } from '../services/pdfGenerator';
+import { generatePDF, generateQuestionPaper, generateAnswerKey } from '../services/pdfGenerator';
+import { MockTest, Question, TestConfiguration, StudentMetadata } from '../types';
 import { GroqEmbeddingService } from '../services/embedding';
 import { InMemoryVectorStore } from '../services/vectorStore';
 import {
@@ -668,21 +669,30 @@ export async function testRoutes(fastify: FastifyInstance) {
   });
 
   // Download question paper PDF (without answers)
-  // Requirement 3.5: Serve question paper PDF
+  // Requirements: 3.5, 9 (Student Personalization)
   fastify.get('/api/tests/:testId/download/questions', async (
-    request: FastifyRequest<{ Params: { testId: string } }>,
+    request: FastifyRequest<{
+      Params: { testId: string };
+      Querystring: { studentName?: string; grade?: string };
+    }>,
     reply: FastifyReply
   ) => {
     try {
       const { testId } = request.params;
+      const { studentName, grade } = request.query;
 
-      // Get test from database
+      // Get test from database with questions for PDF regeneration
       const test = await prisma.test.findUnique({
         where: { id: testId },
-        select: {
-          id: true,
-          userId: true,
-          questionPaperPDF: true,
+        include: {
+          testQuestions: {
+            include: {
+              question: true,
+            },
+            orderBy: {
+              order: 'asc',
+            },
+          },
         },
       });
 
@@ -693,7 +703,64 @@ export async function testRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Check if PDF exists
+      // If student metadata provided, regenerate PDF with personalization (Requirement 9)
+      if (studentName || grade) {
+        // Parse topics from stored JSON
+        const topics = JSON.parse(test.topics || '[]');
+
+        // Build questions array for PDF generation
+        const questions: Question[] = test.testQuestions.map(tq => ({
+          questionId: tq.question.id,
+          topicId: tq.question.topicId,
+          questionText: tq.question.questionText,
+          questionType: tq.question.questionType as 'MultipleChoice' | 'ShortAnswer' | 'Numerical',
+          options: tq.question.options ? JSON.parse(tq.question.options) : undefined,
+          correctAnswer: tq.question.correctAnswer,
+          solutionSteps: tq.question.solutionSteps ? JSON.parse(tq.question.solutionSteps) : undefined,
+          syllabusReference: tq.question.syllabusReference || '',
+          difficulty: 'ExamRealistic' as const,
+          createdAt: tq.question.createdAt,
+        }));
+
+        // Build mock test object for PDF generation
+        const mockTest: MockTest = {
+          testId: test.id,
+          configuration: {
+            subject: test.subject,
+            topics: topics,
+            questionCount: questions.length,
+            testCount: 1,
+            testMode: test.mode as 'InAppExam' | 'PDFDownload',
+          },
+          questions,
+          answerKey: new Map(questions.map(q => [q.questionId, q.correctAnswer])),
+          createdAt: test.createdAt,
+        };
+
+        // Build student metadata
+        const studentMetadata: StudentMetadata = {
+          name: studentName,
+          grade: grade,
+          date: new Date().toISOString().split('T')[0],
+          testId: testId,
+        };
+
+        // Regenerate PDF with student metadata
+        const pdfResult = await generateQuestionPaper(mockTest, topics, studentMetadata);
+
+        if (!pdfResult.ok) {
+          return reply.status(500).send({
+            error: 'PDF generation failed',
+            message: pdfResult.error.reason,
+          });
+        }
+
+        reply.header('Content-Type', 'application/pdf');
+        reply.header('Content-Disposition', `attachment; filename="test-${testId}-questions.pdf"`);
+        return reply.send(pdfResult.value.buffer);
+      }
+
+      // No student metadata - return stored PDF
       if (!test.questionPaperPDF) {
         return reply.status(404).send({
           error: 'PDF not found',
@@ -704,7 +771,7 @@ export async function testRoutes(fastify: FastifyInstance) {
       // Set headers for PDF download
       reply.header('Content-Type', 'application/pdf');
       reply.header('Content-Disposition', `attachment; filename="test-${testId}-questions.pdf"`);
-      
+
       return reply.send(test.questionPaperPDF);
     } catch (error) {
       fastify.log.error(error);
@@ -716,21 +783,30 @@ export async function testRoutes(fastify: FastifyInstance) {
   });
 
   // Download answer key PDF (with answers and solutions)
-  // Requirement 3.6: Serve answer key PDF
+  // Requirements: 3.6, 9 (Student Personalization)
   fastify.get('/api/tests/:testId/download/answers', async (
-    request: FastifyRequest<{ Params: { testId: string } }>,
+    request: FastifyRequest<{
+      Params: { testId: string };
+      Querystring: { studentName?: string; grade?: string };
+    }>,
     reply: FastifyReply
   ) => {
     try {
       const { testId } = request.params;
+      const { studentName, grade } = request.query;
 
-      // Get test from database
+      // Get test from database with questions for PDF regeneration
       const test = await prisma.test.findUnique({
         where: { id: testId },
-        select: {
-          id: true,
-          userId: true,
-          answerKeyPDF: true,
+        include: {
+          testQuestions: {
+            include: {
+              question: true,
+            },
+            orderBy: {
+              order: 'asc',
+            },
+          },
         },
       });
 
@@ -741,7 +817,56 @@ export async function testRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Check if PDF exists
+      // If student metadata provided, regenerate PDF with personalization (Requirement 9)
+      if (studentName || grade) {
+        // Parse topics from stored JSON
+        const topics = JSON.parse(test.topics || '[]');
+
+        // Build questions array for PDF generation
+        const questions: Question[] = test.testQuestions.map(tq => ({
+          questionId: tq.question.id,
+          topicId: tq.question.topicId,
+          questionText: tq.question.questionText,
+          questionType: tq.question.questionType as 'MultipleChoice' | 'ShortAnswer' | 'Numerical',
+          options: tq.question.options ? JSON.parse(tq.question.options) : undefined,
+          correctAnswer: tq.question.correctAnswer,
+          solutionSteps: tq.question.solutionSteps ? JSON.parse(tq.question.solutionSteps) : undefined,
+          syllabusReference: tq.question.syllabusReference || '',
+          difficulty: 'ExamRealistic' as const,
+          createdAt: tq.question.createdAt,
+        }));
+
+        // Build mock test object for PDF generation
+        const mockTest: MockTest = {
+          testId: test.id,
+          configuration: {
+            subject: test.subject,
+            topics: topics,
+            questionCount: questions.length,
+            testCount: 1,
+            testMode: test.mode as 'InAppExam' | 'PDFDownload',
+          },
+          questions,
+          answerKey: new Map(questions.map(q => [q.questionId, q.correctAnswer])),
+          createdAt: test.createdAt,
+        };
+
+        // Regenerate answer key PDF (no student header for answer key)
+        const pdfResult = await generateAnswerKey(mockTest, topics);
+
+        if (!pdfResult.ok) {
+          return reply.status(500).send({
+            error: 'PDF generation failed',
+            message: pdfResult.error.reason,
+          });
+        }
+
+        reply.header('Content-Type', 'application/pdf');
+        reply.header('Content-Disposition', `attachment; filename="test-${testId}-answers.pdf"`);
+        return reply.send(pdfResult.value.buffer);
+      }
+
+      // No student metadata - return stored PDF
       if (!test.answerKeyPDF) {
         return reply.status(404).send({
           error: 'PDF not found',
@@ -752,7 +877,7 @@ export async function testRoutes(fastify: FastifyInstance) {
       // Set headers for PDF download
       reply.header('Content-Type', 'application/pdf');
       reply.header('Content-Disposition', `attachment; filename="test-${testId}-answers.pdf"`);
-      
+
       return reply.send(test.answerKeyPDF);
     } catch (error) {
       fastify.log.error(error);
