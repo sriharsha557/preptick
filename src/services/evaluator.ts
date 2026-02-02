@@ -136,9 +136,14 @@ export class EvaluatorService {
   /**
    * Normalize answer for comparison
    * Removes extra whitespace and converts to lowercase
+   * Handles both string and array inputs
    */
-  private normalizeAnswer(answer: string): string {
-    return answer.trim().toLowerCase().replace(/\s+/g, ' ');
+  private normalizeAnswer(answer: string | string[]): string {
+    // Handle array input - take first element or join
+    const answerStr = Array.isArray(answer) ? (answer[0] || '') : (answer || '');
+    // Ensure it's a string before calling trim
+    const str = typeof answerStr === 'string' ? answerStr : String(answerStr);
+    return str.trim().toLowerCase().replace(/\s+/g, ' ');
   }
 
   /**

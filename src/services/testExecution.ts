@@ -547,8 +547,13 @@ export class TestExecutionService {
   /**
    * Normalize answer for comparison
    * Handles case-insensitive and whitespace-tolerant matching
+   * Handles both string and array inputs
    */
-  private normalizeAnswer(answer: string): string {
-    return answer.trim().toLowerCase();
+  private normalizeAnswer(answer: string | string[]): string {
+    // Handle array input - take first element
+    const answerStr = Array.isArray(answer) ? (answer[0] || '') : (answer || '');
+    // Ensure it's a string before calling trim
+    const str = typeof answerStr === 'string' ? answerStr : String(answerStr);
+    return str.trim().toLowerCase();
   }
 }
