@@ -2,6 +2,8 @@
 // Generates formatted PDFs for test questions and answer keys
 
 import PDFDocument from 'pdfkit';
+import * as fs from 'fs';
+import * as path from 'path';
 import {
   MockTest,
   PDFDocument as PDFDocumentType,
@@ -11,6 +13,27 @@ import {
   Err,
   StudentMetadata,
 } from '../types';
+
+// Logo path for watermark - try multiple locations for dev/prod
+function getLogoPath(): string {
+  const possiblePaths = [
+    path.join(__dirname, '../../assets/logo.png'),       // Development
+    path.join(__dirname, '../../public/logo.png'),       // Alternative dev
+    path.join(__dirname, '../assets/logo.png'),          // Production (dist)
+    path.join(process.cwd(), 'assets/logo.png'),         // CWD assets
+    path.join(process.cwd(), 'public/logo.png'),         // CWD public
+    path.join(process.cwd(), 'dist/logo.png'),           // CWD dist
+  ];
+
+  for (const logoPath of possiblePaths) {
+    if (fs.existsSync(logoPath)) {
+      return logoPath;
+    }
+  }
+
+  // Return first path as default (will log warning if not found)
+  return possiblePaths[0];
+}
 
 /**
  * PDF spacing configuration constants
@@ -39,11 +62,56 @@ const HEADER_FONTS = {
 };
 
 /**
+ * Add logo watermark to the current page
+ * Renders a semi-transparent logo in the center of the page
+ */
+function addWatermark(doc: PDFKit.PDFDocument): void {
+  try {
+    const logoPath = getLogoPath();
+
+    // Check if logo file exists
+    if (!fs.existsSync(logoPath)) {
+      console.warn('Logo file not found at:', logoPath);
+      return;
+    }
+
+    // Save the current graphics state
+    doc.save();
+
+    // Set opacity for watermark effect
+    doc.opacity(0.08);
+
+    // A4 page dimensions: 595 x 842 points
+    const pageWidth = 595;
+    const pageHeight = 842;
+    const watermarkSize = 200;
+
+    // Center the watermark on the page
+    const x = (pageWidth - watermarkSize) / 2;
+    const y = (pageHeight - watermarkSize) / 2;
+
+    // Add the logo image as watermark
+    doc.image(logoPath, x, y, {
+      width: watermarkSize,
+      height: watermarkSize,
+      fit: [watermarkSize, watermarkSize],
+      align: 'center',
+      valign: 'center',
+    });
+
+    // Restore the graphics state
+    doc.restore();
+  } catch (error) {
+    console.warn('Failed to add watermark:', error);
+  }
+}
+
+/**
  * Render student header with personalization metadata
  * Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6
- * 
+ *
  * @param doc - PDFKit document instance
- * @param metadata - Student metadata (name, grade, date, testId)
+ * @param metadata - Student metadata (name, grade, date)
  */
 function renderStudentHeader(
   doc: PDFKit.PDFDocument,
@@ -53,7 +121,6 @@ function renderStudentHeader(
   const studentName = metadata?.name || '[Not Provided]';
   const grade = metadata?.grade || '[Not Provided]';
   const date = metadata?.date || new Date().toISOString().split('T')[0];
-  const testId = metadata?.testId || '[Not Provided]';
 
   // Position header 20px from top margin (Requirement 2.4)
   // Note: The top margin is already set to 40px in PDF_SPACING.margins.top
@@ -77,8 +144,6 @@ function renderStudentHeader(
     .text(`Grade: ${grade}`, { align: 'left' });
 
   doc.text(`Date: ${date}`, { align: 'left' });
-
-  doc.text(`Test ID: ${testId}`, { align: 'left' });
 
   // Add 30px spacing between header and content (Requirement 2.5)
   doc.moveDown(PDF_SPACING.headerGap / 12); // Convert pixels to approximate line spacing
@@ -200,6 +265,14 @@ export async function generateQuestionPaper(
       doc.on('error', reject);
     });
 
+    // Add watermark to first page
+    addWatermark(doc);
+
+    // Add watermark to each new page
+    doc.on('pageAdded', () => {
+      addWatermark(doc);
+    });
+
     // Render student header if metadata provided (Requirements 2.1-2.6)
     if (studentMetadata) {
       renderStudentHeader(doc, studentMetadata);
@@ -266,7 +339,7 @@ export async function generateQuestionPaper(
       // P2 Requirement 4.4: Render checkboxes for multiple-answer questions
       if (question.questionType === 'MultipleChoice' && question.options) {
         const isMultipleAnswer = question.allowMultipleAnswers || false;
-        const symbol = isMultipleAnswer ? '☐' : '○'; // Checkbox for multi-answer, circle for single
+        const symbol = isMultipleAnswer ? '[ ]' : '( )'; // Checkbox for multi-answer, circle for single
         
         question.options.forEach((option, optIndex) => {
           const optionLabel = String.fromCharCode(65 + optIndex); // A, B, C, D...
@@ -347,6 +420,14 @@ export async function generateAnswerKey(
       doc.on('error', reject);
     });
 
+    // Add watermark to first page
+    addWatermark(doc);
+
+    // Add watermark to each new page
+    doc.on('pageAdded', () => {
+      addWatermark(doc);
+    });
+
     // Add header with topics
     addHeader(doc, {
       title: 'ANSWER KEY',
@@ -392,7 +473,7 @@ export async function generateAnswerKey(
       // P2 Requirement 4.4: Render checkboxes for multiple-answer questions
       if (question.questionType === 'MultipleChoice' && question.options) {
         const isMultipleAnswer = question.allowMultipleAnswers || false;
-        const symbol = isMultipleAnswer ? '☐' : '○'; // Checkbox for multi-answer, circle for single
+        const symbol = isMultipleAnswer ? '[ ]' : '( )'; // Checkbox for multi-answer, circle for single
         
         question.options.forEach((option, optIndex) => {
           const optionLabel = String.fromCharCode(65 + optIndex); // A, B, C, D...
@@ -540,6 +621,14 @@ export async function generatePDF(
       doc.on('error', reject);
     });
 
+    // Add watermark to first page
+    addWatermark(doc);
+
+    // Add watermark to each new page
+    doc.on('pageAdded', () => {
+      addWatermark(doc);
+    });
+
     // Generate PDF content
     if (includeAnswers) {
       generateAnswerKeyContent(doc, test);
@@ -659,7 +748,7 @@ function generateTestContent(
     // P2 Requirement 4.4: Render checkboxes for multiple-answer questions
     if (question.questionType === 'MultipleChoice' && question.options) {
       const isMultipleAnswer = question.allowMultipleAnswers || false;
-      const symbol = isMultipleAnswer ? '☐' : '○'; // Checkbox for multi-answer, circle for single
+      const symbol = isMultipleAnswer ? '[ ]' : '( )'; // Checkbox for multi-answer, circle for single
       
       question.options.forEach((option, optIndex) => {
         const optionLabel = String.fromCharCode(65 + optIndex); // A, B, C, D...
@@ -776,7 +865,7 @@ function generateAnswerKeyContent(doc: PDFKit.PDFDocument, test: MockTest): void
     // P2 Requirement 4.4: Render checkboxes for multiple-answer questions
     if (question.questionType === 'MultipleChoice' && question.options) {
       const isMultipleAnswer = question.allowMultipleAnswers || false;
-      const symbol = isMultipleAnswer ? '☐' : '○'; // Checkbox for multi-answer, circle for single
+      const symbol = isMultipleAnswer ? '[ ]' : '( )'; // Checkbox for multi-answer, circle for single
       
       question.options.forEach((option, optIndex) => {
         const optionLabel = String.fromCharCode(65 + optIndex); // A, B, C, D...
