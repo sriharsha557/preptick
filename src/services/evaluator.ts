@@ -160,7 +160,7 @@ export class EvaluatorService {
     submission: TestSubmission
   ): Promise<Result<EvaluationResult, { type: 'EvaluationFailed'; reason: string }>> {
     try {
-      const { testId, userId, responses } = submission;
+      const { testId, responses } = submission;
 
       // Get test with questions and topics
       const test = await this.prisma.test.findUnique({
@@ -187,6 +187,9 @@ export class EvaluatorService {
           reason: `Test with ID ${testId} not found`,
         });
       }
+
+      // Get userId from the test record
+      const userId = test.userId;
 
       // Calculate overall score
       let correctCount = 0;
@@ -295,8 +298,12 @@ export class EvaluatorService {
       await this.prisma.evaluation.create({
         data: {
           id: evaluationId,
-          testId,
-          userId,
+          test: {
+            connect: { id: testId },
+          },
+          user: {
+            connect: { id: userId },
+          },
           overallScore,
           correctCount,
           totalCount,
