@@ -9,7 +9,80 @@ import {
   Result,
   Ok,
   Err,
+  StudentMetadata,
 } from '../types';
+
+/**
+ * PDF spacing configuration constants
+ * Requirements: 1.1, 1.2, 1.3
+ */
+const PDF_SPACING = {
+  questionGap: 20,        // pixels between questions (Requirement 1.1)
+  optionGap: 8,           // pixels between options (Requirement 1.5)
+  solutionGap: 15,        // pixels between answer and solution (Requirement 1.4)
+  separatorPadding: 10,   // pixels around separator line (Requirement 1.6)
+  headerGap: 30,          // pixels between header and content
+  margins: {
+    top: 40,              // top margin (Requirement 1.2)
+    bottom: 40,           // bottom margin (Requirement 1.2)
+    left: 50,             // left margin (Requirement 1.3)
+    right: 50             // right margin (Requirement 1.3)
+  }
+};
+
+/**
+ * Header font configuration
+ */
+const HEADER_FONTS = {
+  studentName: { size: 14, font: 'Helvetica-Bold' },
+  metadata: { size: 10, font: 'Helvetica' }
+};
+
+/**
+ * Render student header with personalization metadata
+ * Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6
+ * 
+ * @param doc - PDFKit document instance
+ * @param metadata - Student metadata (name, grade, date, testId)
+ */
+function renderStudentHeader(
+  doc: PDFKit.PDFDocument,
+  metadata?: StudentMetadata
+): void {
+  // If no metadata provided, use placeholders (Requirement 2.6)
+  const studentName = metadata?.name || '[Not Provided]';
+  const grade = metadata?.grade || '[Not Provided]';
+  const date = metadata?.date || new Date().toISOString().split('T')[0];
+  const testId = metadata?.testId || '[Not Provided]';
+
+  // Position header 20px from top margin (Requirement 2.4)
+  // Note: The top margin is already set to 40px in PDF_SPACING.margins.top
+  // So we position at the top of the content area
+  doc.y = PDF_SPACING.margins.top;
+
+  // Render student name in 14-point bold font (Requirement 2.2)
+  doc
+    .fontSize(HEADER_FONTS.studentName.size)
+    .font(HEADER_FONTS.studentName.font)
+    .text(`Student: ${studentName}`, {
+      align: 'left',
+    });
+
+  doc.moveDown(0.3);
+
+  // Render metadata fields in 10-point regular font (Requirement 2.3)
+  doc
+    .fontSize(HEADER_FONTS.metadata.size)
+    .font(HEADER_FONTS.metadata.font)
+    .text(`Grade: ${grade}`, { align: 'left' });
+
+  doc.text(`Date: ${date}`, { align: 'left' });
+
+  doc.text(`Test ID: ${testId}`, { align: 'left' });
+
+  // Add 30px spacing between header and content (Requirement 2.5)
+  doc.moveDown(PDF_SPACING.headerGap / 12); // Convert pixels to approximate line spacing
+}
 
 /**
  * Metadata for PDF generation
@@ -104,21 +177,17 @@ function addSolutionSteps(
 
 /**
  * Generate question paper PDF (without answers)
- * Requirements: 3.1, 3.2
+ * Requirements: 3.1, 3.2, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6
  */
 export async function generateQuestionPaper(
   test: MockTest,
-  topics: string[]
+  topics: string[],
+  studentMetadata?: StudentMetadata
 ): Promise<Result<PDFDocumentType, PDFError>> {
   try {
     const doc = new PDFDocument({
       size: 'A4',
-      margins: {
-        top: 50,
-        bottom: 50,
-        left: 50,
-        right: 50,
-      },
+      margins: PDF_SPACING.margins,
     });
 
     // Collect PDF data in chunks
@@ -130,6 +199,11 @@ export async function generateQuestionPaper(
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
     });
+
+    // Render student header if metadata provided (Requirements 2.1-2.6)
+    if (studentMetadata) {
+      renderStudentHeader(doc, studentMetadata);
+    }
 
     // Add header with topics
     addHeader(doc, {
@@ -256,12 +330,7 @@ export async function generateAnswerKey(
   try {
     const doc = new PDFDocument({
       size: 'A4',
-      margins: {
-        top: 50,
-        bottom: 50,
-        left: 50,
-        right: 50,
-      },
+      margins: PDF_SPACING.margins,
     });
 
     // Collect PDF data in chunks
@@ -315,7 +384,7 @@ export async function generateAnswerKey(
 
       doc.moveDown(0.5);
 
-      // Options for multiple choice questions
+      // Options for multiple choice questions with spacing (Requirement 1.5)
       if (question.questionType === 'MultipleChoice' && question.options) {
         question.options.forEach((option, optIndex) => {
           const optionLabel = String.fromCharCode(65 + optIndex); // A, B, C, D...
@@ -325,7 +394,8 @@ export async function generateAnswerKey(
             .text(`${optionLabel}. ${option}`, {
               indent: 40,
             });
-          doc.moveDown(0.2);
+          // Add spacing between options (8px) - Requirement 1.5
+          doc.moveDown(PDF_SPACING.optionGap / 12); // Convert pixels to approximate line spacing
         });
       }
 
@@ -340,6 +410,11 @@ export async function generateAnswerKey(
         .text(`Correct Answer: ${correctAnswer || 'N/A'}`, { indent: 20 });
 
       doc.fillColor('black');
+
+      // Add spacing between answer and solution (15px) - Requirement 1.4
+      if (question.solutionSteps) {
+        doc.moveDown(PDF_SPACING.solutionGap / 12); // Convert pixels to approximate line spacing
+      }
 
       // Add solution steps (Requirement 4.4)
       // Parse solutionSteps from JSON string if needed
@@ -365,7 +440,30 @@ export async function generateAnswerKey(
         .text(`Reference: ${question.syllabusReference}`, { indent: 20 });
 
       doc.fillColor('black');
-      doc.moveDown(1.5);
+
+      // Add separator line between questions with padding (Requirement 1.6)
+      if (index < test.questions.length - 1) {
+        // Add padding above separator (10px)
+        doc.moveDown(PDF_SPACING.separatorPadding / 12);
+        
+        // Draw horizontal separator line
+        const lineY = doc.y;
+        doc
+          .moveTo(50, lineY)
+          .lineTo(545, lineY)
+          .strokeColor('#cccccc')
+          .lineWidth(0.5)
+          .stroke();
+        
+        // Reset stroke color and width
+        doc.strokeColor('black').lineWidth(1);
+        
+        // Add padding below separator (10px) + question gap (20px) - Requirement 1.1
+        doc.moveDown((PDF_SPACING.separatorPadding + PDF_SPACING.questionGap) / 12);
+      } else {
+        // Last question, just add some space
+        doc.moveDown(1);
+      }
     });
 
     // Finalize the PDF
@@ -394,21 +492,18 @@ export async function generateAnswerKey(
  * Generate a PDF document for a mock test
  * @param test - The mock test to generate PDF for
  * @param includeAnswers - Whether to include answers in the PDF
+ * @param studentMetadata - Optional student metadata for personalization (Requirements 2.1-2.6)
  * @returns Result containing PDF buffer and filename, or error
  */
 export async function generatePDF(
   test: MockTest,
-  includeAnswers: boolean
+  includeAnswers: boolean,
+  studentMetadata?: StudentMetadata
 ): Promise<Result<PDFDocumentType, PDFError>> {
   try {
     const doc = new PDFDocument({
       size: 'A4',
-      margins: {
-        top: 50,
-        bottom: 50,
-        left: 50,
-        right: 50,
-      },
+      margins: PDF_SPACING.margins,
     });
 
     // Collect PDF data in chunks
@@ -425,7 +520,7 @@ export async function generatePDF(
     if (includeAnswers) {
       generateAnswerKeyContent(doc, test);
     } else {
-      generateTestContent(doc, test);
+      generateTestContent(doc, test, studentMetadata);
     }
 
     // Finalize the PDF
@@ -453,9 +548,19 @@ export async function generatePDF(
 
 /**
  * Generate test content (without answers)
+ * Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6
  */
-function generateTestContent(doc: PDFKit.PDFDocument, test: MockTest): void {
+function generateTestContent(
+  doc: PDFKit.PDFDocument,
+  test: MockTest,
+  studentMetadata?: StudentMetadata
+): void {
   const { configuration, questions } = test;
+
+  // Render student header if metadata provided (Requirements 2.1-2.6)
+  if (studentMetadata) {
+    renderStudentHeader(doc, studentMetadata);
+  }
 
   // Header
   doc

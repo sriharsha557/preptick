@@ -59,16 +59,17 @@ model SyllabusTopic {
 
 // Questions in the Question Bank
 model Question {
-  id                String   @id @default(uuid())
-  topicId           String
-  questionText      String
-  questionType      String   // 'MultipleChoice' | 'ShortAnswer' | 'Numerical'
-  options           String?  // JSON array for multiple choice
-  correctAnswer     String
-  solutionSteps     String   @default("[]") // JSON array of solution steps
-  syllabusReference String
-  difficulty        String   @default("ExamRealistic")
-  createdAt         DateTime @default(now())
+  id                    String   @id @default(uuid())
+  topicId               String
+  questionText          String
+  questionType          String   // 'MultipleChoice' | 'ShortAnswer' | 'Numerical'
+  options               String?  // JSON array for multiple choice
+  correctAnswers        String   @default("[]") // JSON array of correct answers (supports multiple)
+  allowMultipleAnswers  Boolean  @default(false) // New field for P2
+  solutionSteps         String   @default("[]") // JSON array of solution steps
+  syllabusReference     String
+  difficulty            String   @default("ExamRealistic")
+  createdAt             DateTime @default(now())
 
   topic         SyllabusTopic  @relation(fields: [topicId], references: [id])
   testQuestions TestQuestion[]
@@ -85,6 +86,7 @@ model Test {
   topics           String   // JSON array of topic IDs
   mode             String   // 'PrintablePDF' | 'InAppExam'
   status           String   @default("Generated") // 'Generated' | 'InProgress' | 'Submitted'
+  timerMinutes     Int?     // New field for P2 - optional timer duration
   questionPaperPDF Bytes?   // PDF buffer for question paper
   answerKeyPDF     Bytes?   // PDF buffer for answer key
   createdAt        DateTime @default(now())
@@ -115,12 +117,13 @@ model TestQuestion {
 
 // Test Sessions (for in-app exams)
 model TestSession {
-  id          String    @id @default(uuid())
-  testId      String
-  userId      String
-  startedAt   DateTime  @default(now())
-  submittedAt DateTime?
-  status      String    @default("InProgress") // 'InProgress' | 'Submitted'
+  id            String    @id @default(uuid())
+  testId        String
+  userId        String
+  startedAt     DateTime  @default(now())
+  submittedAt   DateTime?
+  status        String    @default("InProgress") // 'InProgress' | 'Submitted'
+  timerExpired  Boolean   @default(false) // New field for P2 - tracks if timer expired
 
   test      Test           @relation(fields: [testId], references: [id])
   user      User           @relation(fields: [userId], references: [id])

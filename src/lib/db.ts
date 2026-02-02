@@ -5,14 +5,90 @@ import { PrismaClient } from '@prisma/client';
 // Create a singleton instance of PrismaClient
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
+/**
+ * Configure connection pool settings for Prisma
+ * Requirements: P2 Requirement 3.6
+ * - Max connections: 10
+ * - Connection timeout: 5000ms
+ * - Idle timeout: 30000ms (30 seconds)
+ */
+function getConnectionUrl(): string {
+  const baseUrl = process.env.DATABASE_URL || '';
+  
+  // Parse the URL to add connection pool parameters
+  const url = new URL(baseUrl);
+  
+  // Set connection pool parameters for PostgreSQL
+  url.searchParams.set('connection_limit', '10');           // Max connections
+  url.searchParams.set('pool_timeout', '5');                // Pool timeout in seconds (5000ms)
+  url.searchParams.set('connect_timeout', '5');             // Connect timeout in seconds (5000ms)
+  
+  // Note: PostgreSQL idle_in_transaction_session_timeout is set at database level
+  // The 30-second idle timeout should be configured in the database or via pgBouncer
+  // For Prisma, we rely on the connection_limit and timeouts above
+  
+  return url.toString();
+}
+
 export const prisma =
   globalForPrisma.prisma ||
   new PrismaClient({
     log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+    // Connection pool configuration for P2 improvements (Requirement 3.6)
+    datasources: {
+      db: {
+        url: getConnectionUrl(),
+      },
+    },
   });
 
 if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma;
+}
+
+/**
+ * Connection pool metrics interface
+ * Used for monitoring database connection health
+ */
+export interface ConnectionPoolMetrics {
+  activeConnections: number;
+  idleConnections: number;
+  totalConnections: number;
+  utilizationPercent: number;
+}
+
+/**
+ * Get current connection pool metrics
+ * Note: Prisma doesn't expose direct pool metrics, so this is a placeholder
+ * for future implementation with monitoring tools
+ */
+export function getPoolMetrics(): ConnectionPoolMetrics {
+  // Prisma doesn't expose connection pool metrics directly
+  // This would need to be implemented with database-specific queries
+  // or monitoring tools like Prisma Pulse
+  return {
+    activeConnections: 0,
+    idleConnections: 0,
+    totalConnections: 0,
+    utilizationPercent: 0,
+  };
+}
+
+/**
+ * Log connection pool warning when utilization is high
+ * Requirements: P2 Requirement 3.2
+ */
+export function logPoolWarning(metrics: ConnectionPoolMetrics): void {
+  if (metrics.utilizationPercent >= 80) {
+    console.warn('[Connection Pool Warning]', {
+      message: 'Connection pool utilization is high',
+      activeConnections: metrics.activeConnections,
+      idleConnections: metrics.idleConnections,
+      totalConnections: metrics.totalConnections,
+      utilizationPercent: `${metrics.utilizationPercent.toFixed(1)}%`,
+      timestamp: new Date().toISOString(),
+    });
+  }
 }
 
 // Helper function to disconnect (useful for testing)

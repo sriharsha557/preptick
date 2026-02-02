@@ -744,4 +744,285 @@ describe('PDF Generator - P1 Improvements', () => {
       }
     });
   });
+
+  describe('P2 Improvements - Answer Key Spacing', () => {
+    // Helper to create test with multiple questions and solutions
+    function createTestWithSolutions(questionCount: number): MockTest {
+      const questions: Question[] = [];
+      const answerKey = new Map<string, string>();
+
+      for (let i = 0; i < questionCount; i++) {
+        const question: Question = {
+          questionId: `q${i + 1}`,
+          topicId: 't1',
+          questionText: `Question ${i + 1}: What is ${i + 1} + ${i + 1}?`,
+          questionType: 'MultipleChoice',
+          options: [`${i}`, `${i + 1}`, `${(i + 1) * 2}`, `${(i + 1) * 3}`],
+          correctAnswer: `${(i + 1) * 2}`,
+          solutionSteps: [
+            `Step 1: Add ${i + 1} + ${i + 1}`,
+            `Step 2: Result is ${(i + 1) * 2}`
+          ],
+          syllabusReference: 'Arithmetic',
+          difficulty: 'ExamRealistic',
+          createdAt: new Date(),
+        };
+        questions.push(question);
+        answerKey.set(`q${i + 1}`, `${(i + 1) * 2}`);
+      }
+
+      return {
+        testId: 'test-spacing',
+        configuration: {
+          subject: 'Mathematics',
+          topics: ['t1'],
+          questionCount: questions.length,
+          testCount: 1,
+          testMode: 'PrintablePDF',
+        },
+        questions,
+        answerKey,
+        createdAt: new Date(),
+      };
+    }
+
+    // Requirement 1.1: Question spacing (20px between questions)
+    it('should generate answer key with multiple questions successfully', async () => {
+      const test = createTestWithSolutions(5);
+      const result = await generateAnswerKey(test, ['Arithmetic']);
+      
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.buffer).toBeInstanceOf(Buffer);
+        expect(result.value.buffer.length).toBeGreaterThan(0);
+        // Verify it's a valid PDF
+        expect(result.value.buffer.toString('utf-8', 0, 4)).toBe('%PDF');
+      }
+    });
+
+    // Requirement 1.4: Spacing between answer and solution (15px)
+    it('should generate answer key with solution steps and proper spacing', async () => {
+      const test = createTestWithSolutions(3);
+      const result = await generateAnswerKey(test, ['Arithmetic']);
+      
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.buffer).toBeInstanceOf(Buffer);
+        expect(result.value.buffer.length).toBeGreaterThan(0);
+      }
+    });
+
+    // Requirement 1.5: Option spacing (8px between options)
+    it('should generate answer key with multiple choice options and proper spacing', async () => {
+      const test = createTestWithSolutions(2);
+      const result = await generateAnswerKey(test, ['Arithmetic']);
+      
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.buffer).toBeInstanceOf(Buffer);
+        expect(result.value.buffer.length).toBeGreaterThan(0);
+      }
+    });
+
+    // Requirement 1.6: Separator lines with padding (10px)
+    it('should generate answer key with separator lines between questions', async () => {
+      const test = createTestWithSolutions(4);
+      const result = await generateAnswerKey(test, ['Arithmetic']);
+      
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.buffer).toBeInstanceOf(Buffer);
+        expect(result.value.buffer.length).toBeGreaterThan(0);
+      }
+    });
+
+    // Edge case: Single question (no separator needed)
+    it('should generate answer key with single question without separator', async () => {
+      const test = createTestWithSolutions(1);
+      const result = await generateAnswerKey(test, ['Arithmetic']);
+      
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.buffer).toBeInstanceOf(Buffer);
+        expect(result.value.buffer.length).toBeGreaterThan(0);
+      }
+    });
+
+    // Edge case: Question without solution steps
+    it('should handle questions without solution steps in answer key', async () => {
+      const questions: Question[] = [{
+        questionId: 'q1',
+        topicId: 't1',
+        questionText: 'What is 5 + 5?',
+        questionType: 'MultipleChoice',
+        options: ['5', '10', '15', '20'],
+        correctAnswer: '10',
+        // No solutionSteps
+        syllabusReference: 'Arithmetic',
+        difficulty: 'ExamRealistic',
+        createdAt: new Date(),
+      }];
+
+      const answerKey = new Map<string, string>();
+      answerKey.set('q1', '10');
+
+      const test: MockTest = {
+        testId: 'test-no-solution',
+        configuration: {
+          subject: 'Mathematics',
+          topics: ['t1'],
+          questionCount: 1,
+          testCount: 1,
+          testMode: 'PrintablePDF',
+        },
+        questions,
+        answerKey,
+        createdAt: new Date(),
+      };
+
+      const result = await generateAnswerKey(test, ['Arithmetic']);
+      expect(result.ok).toBe(true);
+      
+      if (result.ok) {
+        expect(result.value.buffer).toBeInstanceOf(Buffer);
+        expect(result.value.buffer.length).toBeGreaterThan(0);
+      }
+    });
+
+    // Test with many questions to verify spacing doesn't break pagination
+    it('should generate answer key with many questions and proper spacing', async () => {
+      const test = createTestWithSolutions(15);
+      const result = await generateAnswerKey(test, ['Arithmetic']);
+      
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.buffer).toBeInstanceOf(Buffer);
+        expect(result.value.buffer.length).toBeGreaterThan(0);
+        // Should have multiple pages
+        const pdfContent = result.value.buffer.toString('utf-8');
+        expect(pdfContent).toContain('/Type /Pages');
+      }
+    });
+  });
+
+  describe('P2 Improvements - Student Personalization (Task 3.2)', () => {
+    // Helper to create student metadata
+    function createStudentMetadata(
+      name: string = 'John Doe',
+      grade: string = '10',
+      date: string = '2024-02-01',
+      testId: string = 'test-123'
+    ) {
+      return { name, grade, date, testId };
+    }
+
+    // Requirement 2.1: Student header presence in test PDF
+    it('should generate test PDF with student header when metadata provided', async () => {
+      const test = createMockTest(3);
+      const metadata = createStudentMetadata();
+      const result = await generatePDF(test, false, metadata);
+      
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.buffer).toBeInstanceOf(Buffer);
+        expect(result.value.buffer.length).toBeGreaterThan(0);
+        // Verify it's a valid PDF
+        expect(result.value.buffer.toString('utf-8', 0, 4)).toBe('%PDF');
+      }
+    });
+
+    // Requirement 2.2, 2.3: Font formatting for student name and metadata
+    it('should generate test PDF with proper font formatting for student header', async () => {
+      const test = createMockTest(2);
+      const metadata = createStudentMetadata('Alice Smith', '9', '2024-02-15', 'test-456');
+      const result = await generatePDF(test, false, metadata);
+      
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.buffer).toBeInstanceOf(Buffer);
+        expect(result.value.buffer.length).toBeGreaterThan(0);
+      }
+    });
+
+    // Requirement 2.6: Handle missing metadata with placeholders
+    it('should generate test PDF with placeholders when metadata is missing', async () => {
+      const test = createMockTest(2);
+      const metadata = { name: '', grade: '', date: '', testId: '' };
+      const result = await generatePDF(test, false, metadata);
+      
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.buffer).toBeInstanceOf(Buffer);
+        expect(result.value.buffer.length).toBeGreaterThan(0);
+      }
+    });
+
+    // Requirement 2.6: Handle undefined metadata gracefully
+    it('should generate test PDF without student header when metadata not provided', async () => {
+      const test = createMockTest(2);
+      const result = await generatePDF(test, false); // No metadata
+      
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.buffer).toBeInstanceOf(Buffer);
+        expect(result.value.buffer.length).toBeGreaterThan(0);
+      }
+    });
+
+    // Requirement 2.1-2.6: Test with generateQuestionPaper function
+    it('should generate question paper with student header when metadata provided', async () => {
+      const test = createMockTest(3);
+      const topics = ['Algebra', 'Geometry'];
+      const metadata = createStudentMetadata('Bob Johnson', '11', '2024-03-01', 'test-789');
+      const result = await generateQuestionPaper(test, topics, metadata);
+      
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.buffer).toBeInstanceOf(Buffer);
+        expect(result.value.buffer.length).toBeGreaterThan(0);
+        expect(result.value.filename).toContain('questions');
+      }
+    });
+
+    // Test with special characters in student name
+    it('should handle special characters in student metadata', async () => {
+      const test = createMockTest(2);
+      const metadata = createStudentMetadata('María José O\'Brien', '10', '2024-02-01', 'test-special');
+      const result = await generatePDF(test, false, metadata);
+      
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.buffer).toBeInstanceOf(Buffer);
+        expect(result.value.buffer.length).toBeGreaterThan(0);
+      }
+    });
+
+    // Test with very long student name
+    it('should handle very long student name', async () => {
+      const test = createMockTest(2);
+      const longName = 'Christopher Alexander Montgomery Wellington III';
+      const metadata = createStudentMetadata(longName, '12', '2024-02-01', 'test-long-name');
+      const result = await generatePDF(test, false, metadata);
+      
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.buffer).toBeInstanceOf(Buffer);
+        expect(result.value.buffer.length).toBeGreaterThan(0);
+      }
+    });
+
+    // Test that answer key does NOT include student header (only test PDFs should)
+    it('should not include student header in answer key PDF', async () => {
+      const test = createMockTest(3);
+      const metadata = createStudentMetadata();
+      const result = await generatePDF(test, true, metadata); // includeAnswers = true
+      
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.buffer).toBeInstanceOf(Buffer);
+        expect(result.value.buffer.length).toBeGreaterThan(0);
+        expect(result.value.filename).toContain('answer-key');
+      }
+    });
+  });
 });

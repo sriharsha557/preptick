@@ -256,6 +256,17 @@ export type PDFDocument = {
   filename: string;
 };
 
+/**
+ * Student metadata for PDF personalization
+ * Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6
+ */
+export type StudentMetadata = {
+  name: string;
+  grade: string;
+  date: string;
+  testId: string;
+};
+
 // ============================================================================
 // Error Types
 // ============================================================================
