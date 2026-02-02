@@ -248,10 +248,13 @@ Return a JSON object with a "questions" array. Each question must have:
     existingQuestions: Question[],
     subject?: string
   ): string {
+    // Extract topic name from content (format: "Topic Name: content...")
+    const topicName = syllabusContext.content.split(':')[0].trim();
+    
     let prompt = `Generate ${count} exam-realistic questions based on the following syllabus content:\n\n`;
     
-    prompt += `Topic: ${syllabusContext.topicId}\n`;
-    prompt += `Content: ${syllabusContext.content}\n\n`;
+    prompt += `Topic: ${topicName}\n`;
+    prompt += `Syllabus Content: ${syllabusContext.content}\n\n`;
     
     if (syllabusContext.relatedConcepts.length > 0) {
       prompt += `Key Concepts:\n`;
