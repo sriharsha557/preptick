@@ -87,28 +87,8 @@ export async function syllabusRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Try LLM first for dynamic topic generation
-      if (groq) {
-        try {
-          fastify.log.info(`Attempting LLM topic generation for ${curriculum} Grade ${gradeNum} ${subject}`);
-          const llmTopics = await generateTopicsWithLLM(curriculum, gradeNum, subject);
-          fastify.log.info(`LLM generated ${llmTopics.length} topics successfully`);
-          return reply.send({
-            curriculum,
-            grade: gradeNum,
-            subject,
-            topics: llmTopics,
-            source: 'llm',
-          });
-        } catch (llmError) {
-          fastify.log.error('LLM topic generation failed, falling back to database:', llmError);
-        }
-      } else {
-        fastify.log.warn('GROQ API key not configured - LLM topic generation unavailable');
-      }
-
-      // Fallback to database
-      const topics = await prisma.syllabusTopic.findMany({
+      // First try database for curated topics
+      const dbTopics = await prisma.syllabusTopic.findMany({
         where: {
           curriculum,
           grade: gradeNum,
@@ -119,15 +99,48 @@ export async function syllabusRoutes(fastify: FastifyInstance) {
         },
       });
 
+      // If database has topics, use them (preferred)
+      if (dbTopics.length > 0) {
+        fastify.log.info(`Found ${dbTopics.length} curated topics in database for ${curriculum} Grade ${gradeNum} ${subject}`);
+        return reply.send({
+          curriculum,
+          grade: gradeNum,
+          subject,
+          topics: dbTopics.map(topic => ({
+            topicId: topic.id,
+            topicName: topic.topicName,
+          })),
+          source: 'database',
+        });
+      }
+
+      // Fallback to LLM for dynamic topic generation if no DB topics
+      if (groq) {
+        try {
+          fastify.log.info(`No DB topics found, attempting LLM topic generation for ${curriculum} Grade ${gradeNum} ${subject}`);
+          const llmTopics = await generateTopicsWithLLM(curriculum, gradeNum, subject);
+          fastify.log.info(`LLM generated ${llmTopics.length} topics successfully`);
+          return reply.send({
+            curriculum,
+            grade: gradeNum,
+            subject,
+            topics: llmTopics,
+            source: 'llm',
+          });
+        } catch (llmError) {
+          fastify.log.error('LLM topic generation failed:', llmError);
+        }
+      } else {
+        fastify.log.warn('GROQ API key not configured - LLM topic generation unavailable');
+      }
+
+      // Return empty if both methods fail
       return reply.send({
         curriculum,
         grade: gradeNum,
         subject,
-        topics: topics.map(topic => ({
-          topicId: topic.id,
-          topicName: topic.topicName,
-        })),
-        source: 'database',
+        topics: [],
+        source: 'none',
       });
     } catch (error) {
       fastify.log.error(error);
