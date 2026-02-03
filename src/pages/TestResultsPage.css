@@ -272,6 +272,23 @@
   transform: translateX(4px);
 }
 
+.suggestion-section {
+  margin-bottom: var(--spacing-sm);
+  color: var(--color-text-primary);
+}
+
+.concepts-list {
+  margin: var(--spacing-sm) 0 0 var(--spacing-lg);
+  padding: 0;
+  list-style-type: disc;
+  color: var(--color-text-secondary);
+}
+
+.concepts-list li {
+  margin-bottom: var(--spacing-xs);
+  line-height: var(--line-height-relaxed);
+}
+
 /* Toggle Button */
 .toggle-button {
   padding: var(--spacing-sm) var(--spacing-lg);

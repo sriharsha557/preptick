@@ -17,8 +17,8 @@ interface WeakTopic {
   topicId: string;
   topicName: string;
   score: number;
-  totalQuestions: number;
-  percentage: number;
+  questionsAttempted: number;
+  questionsCorrect: number;
 }
 
 interface QuestionResult {
@@ -27,6 +27,13 @@ interface QuestionResult {
   userAnswer: string | null;
   correctAnswer: string;
   isCorrect: boolean;
+}
+
+interface ImprovementSuggestion {
+  topicId: string;
+  syllabusSection: string;
+  conceptsToReview: string[];
+  retryTestOption: boolean;
 }
 
 interface TestResults {
@@ -41,7 +48,7 @@ interface TestResults {
   report: {
     reportId: string;
     weakTopics: WeakTopic[];
-    suggestions: string[];
+    suggestions: ImprovementSuggestion[];
     generatedAt: Date;
   };
   questions: QuestionResult[];
@@ -225,7 +232,7 @@ const TestResultsPage: React.FC = () => {
                     <div className="weak-topic-info">
                       <div className="weak-topic-name">{topic.topicName}</div>
                       <div className="weak-topic-score">
-                        {topic.score}/{topic.totalQuestions} correct ({topic.percentage.toFixed(1)}%)
+                        {topic.questionsCorrect}/{topic.questionsAttempted} correct ({topic.score.toFixed(1)}%)
                       </div>
                     </div>
                   </div>
@@ -238,11 +245,22 @@ const TestResultsPage: React.FC = () => {
           {report.suggestions.length > 0 && (
             <div className="section-card">
               <h2 className="section-title">Improvement Suggestions</h2>
-              <ul className="suggestions-list">
+              <div className="suggestions-list">
                 {report.suggestions.map((suggestion, index) => (
-                  <li key={index} className="suggestion-item">{suggestion}</li>
+                  <div key={index} className="suggestion-item">
+                    <div className="suggestion-section">
+                      <strong>Review:</strong> {suggestion.syllabusSection}
+                    </div>
+                    {suggestion.conceptsToReview.length > 0 && (
+                      <ul className="concepts-list">
+                        {suggestion.conceptsToReview.map((concept, i) => (
+                          <li key={i}>{concept}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 ))}
-              </ul>
+              </div>
             </div>
           )}
 
