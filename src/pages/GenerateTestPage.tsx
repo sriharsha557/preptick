@@ -14,7 +14,8 @@ const GenerateTestPage: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [subjects] = useState(['Mathematics', 'Science', 'English']);
+  // Only show Mathematics and English for now (Science and Hindi hidden for later)
+  const [subjects] = useState(['Mathematics', 'English']);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
 

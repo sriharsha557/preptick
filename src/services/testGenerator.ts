@@ -313,7 +313,8 @@ export class TestGeneratorService {
               syllabusContext,
               topicDist.questionCount,
               [...existingQuestions, ...allQuestions],
-              config.subject
+              config.subject,
+              config.testMode
             );
 
             if (!result.ok) {

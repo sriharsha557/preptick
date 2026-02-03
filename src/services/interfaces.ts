@@ -102,9 +102,11 @@ export interface QuestionGenerator {
   generateQuestions(
     syllabusContext: SyllabusContext,
     count: number,
-    existingQuestions: Question[]
+    existingQuestions: Question[],
+    subject?: string,
+    testMode?: 'InAppExam' | 'PDFDownload'
   ): Promise<Result<Question[], GenerationError>>;
-  
+
   validateSyllabusAlignment(
     question: Question,
     syllabusContext: SyllabusContext
