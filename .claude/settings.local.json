@@ -14,7 +14,8 @@
       "Bash(git push)",
       "Bash(npx neonctl@latest projects create:*)",
       "Bash(curl:*)",
-      "Bash(npx tsx:*)"
+      "Bash(npx tsx:*)",
+      "Bash(git push:*)"
     ]
   }
 }

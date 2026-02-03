@@ -27,6 +27,7 @@ interface QuestionResult {
   userAnswer: string | null;
   correctAnswer: string;
   isCorrect: boolean;
+  solutionSteps?: string[];
 }
 
 interface ImprovementSuggestion {
@@ -298,10 +299,22 @@ const TestResultsPage: React.FC = () => {
                         </span>
                       </div>
                       {!q.isCorrect && (
-                        <div className="answer-row">
-                          <span className="answer-label">Correct Answer:</span>
-                          <span className="answer-value correct">{q.correctAnswer}</span>
-                        </div>
+                        <>
+                          <div className="answer-row">
+                            <span className="answer-label">Correct Answer:</span>
+                            <span className="answer-value correct">{q.correctAnswer}</span>
+                          </div>
+                          {q.solutionSteps && q.solutionSteps.length > 0 && (
+                            <div className="solution-steps">
+                              <span className="solution-label">Solution:</span>
+                              <ol className="solution-list">
+                                {q.solutionSteps.map((step, stepIndex) => (
+                                  <li key={stepIndex}>{step}</li>
+                                ))}
+                              </ol>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>

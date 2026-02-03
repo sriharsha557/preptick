@@ -468,6 +468,7 @@ export class TestExecutionService {
     userAnswer: string | null;
     correctAnswer: string;
     isCorrect: boolean;
+    solutionSteps?: string[];
   }>, SubmitError>> {
     try {
       // Verify test is submitted
@@ -526,12 +527,22 @@ export class TestExecutionService {
         const isCorrect = userAnswer !== null &&
           this.normalizeAnswer(userAnswer) === this.normalizeAnswer(correctAnswer);
 
+        // Parse solution steps from JSON array
+        let solutionSteps: string[] | undefined;
+        try {
+          const parsed = JSON.parse(tq.question.solutionSteps || '[]');
+          solutionSteps = Array.isArray(parsed) && parsed.length > 0 ? parsed : undefined;
+        } catch {
+          solutionSteps = undefined;
+        }
+
         return {
           questionId: tq.question.id,
           questionText: tq.question.questionText,
           userAnswer,
           correctAnswer,
           isCorrect,
+          solutionSteps,
         };
       });
 

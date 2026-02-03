@@ -753,7 +753,7 @@ export async function testRoutes(fastify: FastifyInstance) {
         const topicIds = JSON.parse(test.topics || '[]');
         
         // Fetch actual topic names from database
-        const topicsFromDb = await prisma.topic.findMany({
+        const topicsFromDb = await prisma.syllabusTopic.findMany({
           where: { id: { in: topicIds } },
           select: { id: true, topicName: true },
         });
@@ -884,7 +884,7 @@ export async function testRoutes(fastify: FastifyInstance) {
         const topicIds = JSON.parse(test.topics || '[]');
         
         // Fetch actual topic names from database
-        const topicsFromDb = await prisma.topic.findMany({
+        const topicsFromDb = await prisma.syllabusTopic.findMany({
           where: { id: { in: topicIds } },
           select: { id: true, topicName: true },
         });
