@@ -87,12 +87,18 @@ export async function syllabusRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // First try database for curated topics
+      // First try database for curated topics (case-insensitive subject match)
       const dbTopics = await prisma.syllabusTopic.findMany({
         where: {
-          curriculum,
+          curriculum: {
+            equals: curriculum,
+            mode: 'insensitive',
+          },
           grade: gradeNum,
-          subject,
+          subject: {
+            equals: subject,
+            mode: 'insensitive',
+          },
         },
         orderBy: {
           topicName: 'asc',
