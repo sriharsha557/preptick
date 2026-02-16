@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
-import { apiGet, getApiUrl } from '../lib/api';
+import { apiGet } from '../lib/api';
+import { pdfDownloadService, DownloadState } from '../services/pdfDownloadService';
 import './TestResultsPage.css';
 
 interface TopicScore {
@@ -64,9 +65,28 @@ const TestResultsPage: React.FC = () => {
   const [results, setResults] = useState<TestResults | null>(null);
   const [showAnswers, setShowAnswers] = useState(false);
 
+  // PDF download state (Requirements: 5.1, 5.2, 5.4, 5.6)
+  const [downloadState, setDownloadState] = useState<DownloadState>({
+    loading: false,
+    error: null,
+    success: false,
+    progress: null,
+  });
+
   useEffect(() => {
     loadResults();
   }, [testId]);
+
+  // Subscribe to PDF download service state changes
+  useEffect(() => {
+    const unsubscribe = pdfDownloadService.subscribe((state) => {
+      setDownloadState(state);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   const loadResults = async () => {
     try {
@@ -86,24 +106,20 @@ const TestResultsPage: React.FC = () => {
   };
 
   const handleDownloadPDF = async () => {
+    if (!testId) return;
+    
     try {
-      const response = await fetch(getApiUrl(`/api/tests/${testId}/pdf?includeAnswers=true`));
+      // Reset any previous state
+      pdfDownloadService.reset();
       
-      if (!response.ok) {
-        throw new Error('Failed to download PDF');
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `test-${testId}-results.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (err) {
-      alert('Failed to download PDF');
+      // Download using the service (handles loading states automatically)
+      const blob = await pdfDownloadService.downloadAnswerKeyPDF(testId);
+      
+      // Trigger browser download
+      pdfDownloadService.triggerDownload(blob, `test-${testId}-results.pdf`);
+    } catch (error) {
+      // Error is already handled by the service
+      console.error('Download failed:', error);
     }
   };
 
@@ -325,7 +341,34 @@ const TestResultsPage: React.FC = () => {
 
           {/* Action Buttons */}
           <div className="action-buttons">
-            <button onClick={handleDownloadPDF} className="action-button secondary">
+            {/* Loading/Error/Success Messages (Requirements: 5.1, 5.2, 5.4, 5.6) */}
+            {downloadState.loading && (
+              <div className="download-status loading">
+                <div className="spinner"></div>
+                <span>Generating PDF...</span>
+                {downloadState.progress && (
+                  <div className="progress-message">{downloadState.progress}</div>
+                )}
+              </div>
+            )}
+            
+            {downloadState.error && (
+              <div className="download-status error">
+                {downloadState.error}
+              </div>
+            )}
+            
+            {downloadState.success && (
+              <div className="download-status success">
+                PDF downloaded successfully
+              </div>
+            )}
+            
+            <button 
+              onClick={handleDownloadPDF} 
+              className="action-button secondary"
+              disabled={downloadState.loading}
+            >
               📄 Download PDF
             </button>
             <button onClick={handleRetryTest} className="action-button primary">

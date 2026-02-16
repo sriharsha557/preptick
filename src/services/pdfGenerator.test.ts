@@ -1025,4 +1025,321 @@ describe('PDF Generator - P1 Improvements', () => {
       }
     });
   });
+
+  describe('parseSolutionSteps Helper Function', () => {
+    // Import the function for testing - we'll need to export it first
+    // For now, we'll test it indirectly through the PDF generation
+    
+    // Test parsing valid JSON array string
+    it('should parse valid JSON array string of solution steps', async () => {
+      const questions: Question[] = [{
+        questionId: 'q1',
+        topicId: 't1',
+        questionText: 'Test question',
+        questionType: 'Numerical',
+        correctAnswer: '42',
+        solutionSteps: '["Step 1: First step", "Step 2: Second step", "Step 3: Final step"]' as any,
+        syllabusReference: 'Test',
+        difficulty: 'ExamRealistic',
+        createdAt: new Date(),
+      }];
+
+      const answerKey = new Map<string, string>();
+      answerKey.set('q1', '42');
+
+      const test: MockTest = {
+        testId: 'test-json-string',
+        configuration: {
+          subject: 'Test',
+          topics: ['t1'],
+          questionCount: 1,
+          testCount: 1,
+          testMode: 'PrintablePDF',
+        },
+        questions,
+        answerKey,
+        createdAt: new Date(),
+      };
+
+      const result = await generateAnswerKey(test, ['Test']);
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.buffer).toBeInstanceOf(Buffer);
+        expect(result.value.buffer.length).toBeGreaterThan(0);
+      }
+    });
+
+    // Test parsing array input (already parsed)
+    it('should handle array input for solution steps', async () => {
+      const questions: Question[] = [{
+        questionId: 'q1',
+        topicId: 't1',
+        questionText: 'Test question',
+        questionType: 'Numerical',
+        correctAnswer: '42',
+        solutionSteps: ['Step 1: First step', 'Step 2: Second step'],
+        syllabusReference: 'Test',
+        difficulty: 'ExamRealistic',
+        createdAt: new Date(),
+      }];
+
+      const answerKey = new Map<string, string>();
+      answerKey.set('q1', '42');
+
+      const test: MockTest = {
+        testId: 'test-array',
+        configuration: {
+          subject: 'Test',
+          topics: ['t1'],
+          questionCount: 1,
+          testCount: 1,
+          testMode: 'PrintablePDF',
+        },
+        questions,
+        answerKey,
+        createdAt: new Date(),
+      };
+
+      const result = await generateAnswerKey(test, ['Test']);
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.buffer).toBeInstanceOf(Buffer);
+        expect(result.value.buffer.length).toBeGreaterThan(0);
+      }
+    });
+
+    // Test handling null solution steps
+    it('should handle null solution steps gracefully', async () => {
+      const questions: Question[] = [{
+        questionId: 'q1',
+        topicId: 't1',
+        questionText: 'Test question',
+        questionType: 'Numerical',
+        correctAnswer: '42',
+        solutionSteps: null as any,
+        syllabusReference: 'Test',
+        difficulty: 'ExamRealistic',
+        createdAt: new Date(),
+      }];
+
+      const answerKey = new Map<string, string>();
+      answerKey.set('q1', '42');
+
+      const test: MockTest = {
+        testId: 'test-null',
+        configuration: {
+          subject: 'Test',
+          topics: ['t1'],
+          questionCount: 1,
+          testCount: 1,
+          testMode: 'PrintablePDF',
+        },
+        questions,
+        answerKey,
+        createdAt: new Date(),
+      };
+
+      const result = await generateAnswerKey(test, ['Test']);
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.buffer).toBeInstanceOf(Buffer);
+        expect(result.value.buffer.length).toBeGreaterThan(0);
+      }
+    });
+
+    // Test handling undefined solution steps
+    it('should handle undefined solution steps gracefully', async () => {
+      const questions: Question[] = [{
+        questionId: 'q1',
+        topicId: 't1',
+        questionText: 'Test question',
+        questionType: 'Numerical',
+        correctAnswer: '42',
+        // solutionSteps is undefined (not provided)
+        syllabusReference: 'Test',
+        difficulty: 'ExamRealistic',
+        createdAt: new Date(),
+      }];
+
+      const answerKey = new Map<string, string>();
+      answerKey.set('q1', '42');
+
+      const test: MockTest = {
+        testId: 'test-undefined',
+        configuration: {
+          subject: 'Test',
+          topics: ['t1'],
+          questionCount: 1,
+          testCount: 1,
+          testMode: 'PrintablePDF',
+        },
+        questions,
+        answerKey,
+        createdAt: new Date(),
+      };
+
+      const result = await generateAnswerKey(test, ['Test']);
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.buffer).toBeInstanceOf(Buffer);
+        expect(result.value.buffer.length).toBeGreaterThan(0);
+      }
+    });
+
+    // Test handling malformed JSON
+    it('should handle malformed JSON gracefully', async () => {
+      const questions: Question[] = [{
+        questionId: 'q1',
+        topicId: 't1',
+        questionText: 'Test question',
+        questionType: 'Numerical',
+        correctAnswer: '42',
+        solutionSteps: '["Step 1", "Step 2"' as any, // Malformed JSON (missing closing bracket)
+        syllabusReference: 'Test',
+        difficulty: 'ExamRealistic',
+        createdAt: new Date(),
+      }];
+
+      const answerKey = new Map<string, string>();
+      answerKey.set('q1', '42');
+
+      const test: MockTest = {
+        testId: 'test-malformed',
+        configuration: {
+          subject: 'Test',
+          topics: ['t1'],
+          questionCount: 1,
+          testCount: 1,
+          testMode: 'PrintablePDF',
+        },
+        questions,
+        answerKey,
+        createdAt: new Date(),
+      };
+
+      const result = await generateAnswerKey(test, ['Test']);
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.buffer).toBeInstanceOf(Buffer);
+        expect(result.value.buffer.length).toBeGreaterThan(0);
+      }
+    });
+
+    // Test handling empty array
+    it('should handle empty array gracefully', async () => {
+      const questions: Question[] = [{
+        questionId: 'q1',
+        topicId: 't1',
+        questionText: 'Test question',
+        questionType: 'Numerical',
+        correctAnswer: '42',
+        solutionSteps: [] as any,
+        syllabusReference: 'Test',
+        difficulty: 'ExamRealistic',
+        createdAt: new Date(),
+      }];
+
+      const answerKey = new Map<string, string>();
+      answerKey.set('q1', '42');
+
+      const test: MockTest = {
+        testId: 'test-empty-array',
+        configuration: {
+          subject: 'Test',
+          topics: ['t1'],
+          questionCount: 1,
+          testCount: 1,
+          testMode: 'PrintablePDF',
+        },
+        questions,
+        answerKey,
+        createdAt: new Date(),
+      };
+
+      const result = await generateAnswerKey(test, ['Test']);
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.buffer).toBeInstanceOf(Buffer);
+        expect(result.value.buffer.length).toBeGreaterThan(0);
+      }
+    });
+
+    // Test handling non-array JSON
+    it('should handle non-array JSON gracefully', async () => {
+      const questions: Question[] = [{
+        questionId: 'q1',
+        topicId: 't1',
+        questionText: 'Test question',
+        questionType: 'Numerical',
+        correctAnswer: '42',
+        solutionSteps: '{"step": "Not an array"}' as any,
+        syllabusReference: 'Test',
+        difficulty: 'ExamRealistic',
+        createdAt: new Date(),
+      }];
+
+      const answerKey = new Map<string, string>();
+      answerKey.set('q1', '42');
+
+      const test: MockTest = {
+        testId: 'test-non-array',
+        configuration: {
+          subject: 'Test',
+          topics: ['t1'],
+          questionCount: 1,
+          testCount: 1,
+          testMode: 'PrintablePDF',
+        },
+        questions,
+        answerKey,
+        createdAt: new Date(),
+      };
+
+      const result = await generateAnswerKey(test, ['Test']);
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.buffer).toBeInstanceOf(Buffer);
+        expect(result.value.buffer.length).toBeGreaterThan(0);
+      }
+    });
+
+    // Test handling array with non-string elements
+    it('should handle array with non-string elements gracefully', async () => {
+      const questions: Question[] = [{
+        questionId: 'q1',
+        topicId: 't1',
+        questionText: 'Test question',
+        questionType: 'Numerical',
+        correctAnswer: '42',
+        solutionSteps: [1, 2, 3] as any, // Array of numbers instead of strings
+        syllabusReference: 'Test',
+        difficulty: 'ExamRealistic',
+        createdAt: new Date(),
+      }];
+
+      const answerKey = new Map<string, string>();
+      answerKey.set('q1', '42');
+
+      const test: MockTest = {
+        testId: 'test-non-string-array',
+        configuration: {
+          subject: 'Test',
+          topics: ['t1'],
+          questionCount: 1,
+          testCount: 1,
+          testMode: 'PrintablePDF',
+        },
+        questions,
+        answerKey,
+        createdAt: new Date(),
+      };
+
+      const result = await generateAnswerKey(test, ['Test']);
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.buffer).toBeInstanceOf(Buffer);
+        expect(result.value.buffer.length).toBeGreaterThan(0);
+      }
+    });
+  });
 });

@@ -414,6 +414,38 @@
   color: var(--color-error-dark);
 }
 
+/* Solution Steps */
+.solution-steps {
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-md) var(--spacing-lg);
+  background: var(--color-background-tertiary);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--color-primary);
+}
+
+.solution-label {
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-primary);
+  display: block;
+  margin-bottom: var(--spacing-sm);
+}
+
+.solution-list {
+  margin: 0;
+  padding-left: var(--spacing-lg);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-relaxed);
+}
+
+.solution-list li {
+  margin-bottom: var(--spacing-xs);
+}
+
+.solution-list li:last-child {
+  margin-bottom: 0;
+}
+
 /* Action Buttons */
 .action-buttons {
   display: flex;
@@ -579,4 +611,59 @@
   .question-review-item {
     padding: var(--spacing-md);
   }
+}
+
+/* Download Status Messages (Requirements: 5.1, 5.2, 5.4, 5.6) */
+.download-status {
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--spacing-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  font-family: var(--font-body);
+  font-size: var(--font-size-md);
+  animation: fadeInUp 0.3s ease-out;
+}
+
+.download-status.loading {
+  background: rgba(8, 145, 178, 0.1);
+  color: var(--color-primary);
+  border: 2px solid var(--color-primary-light);
+  flex-direction: column;
+}
+
+.download-status.error {
+  background: var(--color-error-light);
+  color: var(--color-error-dark);
+  border: 2px solid var(--color-error);
+}
+
+.download-status.success {
+  background: var(--color-success-light);
+  color: var(--color-success-dark);
+  border: 2px solid var(--color-success);
+}
+
+/* Loading Spinner (Requirement 5.1) */
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid rgba(8, 145, 178, 0.2);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.progress-message {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-top: var(--spacing-xs);
 }

@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { apiGet, apiPost, getApiUrl, ApiError } from '../lib/api';
+import { pdfDownloadService, DownloadState } from '../services/pdfDownloadService';
+import { FEATURE_FLAGS } from '../config/features';
 import './GenerateTestPage.css';
 
 interface Topic {
@@ -43,6 +45,14 @@ const GenerateTestPage: React.FC = () => {
 
   // State for dual PDF downloads (Requirement 3.1)
   const [generatedTestId, setGeneratedTestId] = useState<string | null>(null);
+
+  // PDF download state (Requirements: 5.1, 5.2, 5.3)
+  const [downloadState, setDownloadState] = useState<DownloadState>({
+    loading: false,
+    error: null,
+    success: false,
+    progress: null,
+  });
 
   // Fetch user profile on mount to auto-populate grade
   // Requirements: 1.1, 1.2, 1.4, 1.5
@@ -88,6 +98,17 @@ const GenerateTestPage: React.FC = () => {
     };
 
     fetchUserProfile();
+  }, []);
+
+  // Subscribe to PDF download service state changes
+  useEffect(() => {
+    const unsubscribe = pdfDownloadService.subscribe((state) => {
+      setDownloadState(state);
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -139,12 +160,15 @@ const GenerateTestPage: React.FC = () => {
   };
 
   const handleTopicToggle = (topicId: string) => {
-    const isSelected = formData.selectedTopics.includes(topicId);
+    // Split comma-separated IDs to handle deduplicated topics (Requirement 4.4, 4.5)
+    const ids = topicId.split(',');
+    const isSelected = ids.every(id => formData.selectedTopics.includes(id));
+    
     setFormData({
       ...formData,
       selectedTopics: isSelected
-        ? formData.selectedTopics.filter(id => id !== topicId)
-        : [...formData.selectedTopics, topicId],
+        ? formData.selectedTopics.filter(id => !ids.includes(id))
+        : [...formData.selectedTopics, ...ids],
     });
   };
 
@@ -266,28 +290,42 @@ const GenerateTestPage: React.FC = () => {
     }
   };
 
-  // Download question paper PDF (Requirements: 3.5, 9)
-  const handleDownloadQuestions = () => {
+  // Download question paper PDF (Requirements: 3.5, 9, 5.1, 5.2, 5.3)
+  const handleDownloadQuestions = async () => {
     if (!generatedTestId) return;
-    // Include student metadata for PDF personalization (Requirement 9)
-    const params = new URLSearchParams();
-    if (userName) params.set('studentName', userName);
-    params.set('grade', formData.grade.toString());
-    const queryString = params.toString();
-    const pdfUrl = getApiUrl(`/api/tests/${generatedTestId}/download/questions${queryString ? `?${queryString}` : ''}`);
-    window.open(pdfUrl, '_blank');
+    
+    try {
+      // Reset any previous state
+      pdfDownloadService.reset();
+      
+      // Download using the service (handles loading states automatically)
+      const blob = await pdfDownloadService.downloadTestPDF(generatedTestId);
+      
+      // Trigger browser download
+      pdfDownloadService.triggerDownload(blob, `test-${generatedTestId}-questions.pdf`);
+    } catch (error) {
+      // Error is already handled by the service
+      console.error('Download failed:', error);
+    }
   };
 
-  // Download answer key PDF (Requirement 3.6)
-  const handleDownloadAnswers = () => {
+  // Download answer key PDF (Requirements: 3.6, 5.1, 5.2, 5.3)
+  const handleDownloadAnswers = async () => {
     if (!generatedTestId) return;
-    // Include student metadata for PDF personalization (Requirement 9)
-    const params = new URLSearchParams();
-    if (userName) params.set('studentName', userName);
-    params.set('grade', formData.grade.toString());
-    const queryString = params.toString();
-    const pdfUrl = getApiUrl(`/api/tests/${generatedTestId}/download/answers${queryString ? `?${queryString}` : ''}`);
-    window.open(pdfUrl, '_blank');
+    
+    try {
+      // Reset any previous state
+      pdfDownloadService.reset();
+      
+      // Download using the service (handles loading states automatically)
+      const blob = await pdfDownloadService.downloadAnswerKeyPDF(generatedTestId);
+      
+      // Trigger browser download
+      pdfDownloadService.triggerDownload(blob, `test-${generatedTestId}-answers.pdf`);
+    } catch (error) {
+      // Error is already handled by the service
+      console.error('Download failed:', error);
+    }
   };
 
   return (
@@ -350,65 +388,76 @@ const GenerateTestPage: React.FC = () => {
             <div className="form-section">
               <label className="form-label">Topics</label>
               <div className="topics-grid">
-                {topics.map(topic => (
-                  <label key={topic.id} className={`topic-checkbox ${topic.id.startsWith('custom-') ? 'custom-topic-chip' : ''}`}>
-                    <input
-                      type="checkbox"
-                      checked={formData.selectedTopics.includes(topic.id)}
-                      onChange={() => handleTopicToggle(topic.id)}
-                    />
-                    <span>{topic.name}</span>
-                  </label>
-                ))}
+                {topics.map(topic => {
+                  // Handle comma-separated IDs for deduplicated topics (Requirement 4.4, 4.5)
+                  const ids = topic.id.split(',');
+                  const isSelected = ids.every(id => formData.selectedTopics.includes(id));
+                  
+                  return (
+                    <label key={topic.id} className={`topic-checkbox ${topic.id.startsWith('custom-') ? 'custom-topic-chip' : ''}`}>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => handleTopicToggle(topic.id)}
+                      />
+                      <span>{topic.name}</span>
+                    </label>
+                  );
+                })}
               </div>
               {formData.selectedTopics.length === 0 && (
                 <p className="help-text">Select at least one topic</p>
               )}
 
-              {/* Custom Topic Section */}
-              <div className="custom-topic-section">
-                <button
-                  type="button"
-                  className="custom-topic-toggle"
-                  onClick={() => {
-                    setShowCustomTopic(!showCustomTopic);
-                    setValidationFeedback(null);
-                  }}
-                >
-                  {showCustomTopic ? '−' : '+'} Add Custom Topic
-                </button>
+              {/* Custom Topic Section - Only show if feature flag is enabled (Requirements 5.2, 5.3, 5.4) */}
+              {FEATURE_FLAGS.CUSTOM_TOPICS_ENABLED && (
+                <div className="custom-topic-section">
+                  <p className="help-text">
+                    Can't find your topic? Add a custom topic and we'll validate it against the syllabus.
+                  </p>
+                  <button
+                    type="button"
+                    className="custom-topic-toggle"
+                    onClick={() => {
+                      setShowCustomTopic(!showCustomTopic);
+                      setValidationFeedback(null);
+                    }}
+                  >
+                    {showCustomTopic ? '−' : '+'} Add Custom Topic
+                  </button>
 
-                {showCustomTopic && (
-                  <div className="custom-topic-form">
-                    <input
-                      type="text"
-                      value={customTopic}
-                      onChange={(e) => setCustomTopic(e.target.value)}
-                      placeholder="Enter a specific topic name..."
-                      className="custom-topic-input"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          handleValidateCustomTopic();
-                        }
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={handleValidateCustomTopic}
-                      disabled={isValidating || !customTopic.trim()}
-                      className="validate-button"
-                    >
-                      {isValidating ? 'Validating...' : 'Validate & Add'}
-                    </button>
-                    {validationFeedback && (
-                      <div className={`validation-feedback ${validationFeedback.type}`}>
-                        {validationFeedback.message}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+                  {showCustomTopic && (
+                    <div className="custom-topic-form">
+                      <input
+                        type="text"
+                        value={customTopic}
+                        onChange={(e) => setCustomTopic(e.target.value)}
+                        placeholder="Enter a specific topic name..."
+                        className="custom-topic-input"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleValidateCustomTopic();
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleValidateCustomTopic}
+                        disabled={isValidating || !customTopic.trim()}
+                        className="validate-button"
+                      >
+                        {isValidating ? 'Validating...' : 'Validate & Add'}
+                      </button>
+                      {validationFeedback && (
+                        <div className={`validation-feedback ${validationFeedback.type}`}>
+                          {validationFeedback.message}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="form-section">
@@ -467,21 +516,47 @@ const GenerateTestPage: React.FC = () => {
             </button>
           </form>
 
-          {/* Dual PDF Download Buttons (Requirements: 3.4, 3.5, 3.6) */}
+          {/* Dual PDF Download Buttons (Requirements: 3.4, 3.5, 3.6, 5.1, 5.2, 5.3) */}
           {formData.testMode === 'PDFDownload' && generatedTestId && (
             <div className="pdf-download-section">
               <h2>Test Generated Successfully!</h2>
               <p>Download your test materials below:</p>
+              
+              {/* Loading/Error/Success Messages */}
+              {downloadState.loading && (
+                <div className="download-status loading">
+                  <div className="spinner"></div>
+                  <span>Generating PDF...</span>
+                  {downloadState.progress && (
+                    <div className="progress-message">{downloadState.progress}</div>
+                  )}
+                </div>
+              )}
+              
+              {downloadState.error && (
+                <div className="download-status error">
+                  {downloadState.error}
+                </div>
+              )}
+              
+              {downloadState.success && (
+                <div className="download-status success">
+                  PDF downloaded successfully
+                </div>
+              )}
+              
               <div className="download-buttons">
                 <button
                   onClick={handleDownloadQuestions}
                   className="download-button download-questions"
+                  disabled={downloadState.loading}
                 >
                   📄 Download Question Paper
                 </button>
                 <button
                   onClick={handleDownloadAnswers}
                   className="download-button download-answers"
+                  disabled={downloadState.loading}
                 >
                   ✅ Download Answer Key
                 </button>

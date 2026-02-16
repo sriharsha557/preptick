@@ -108,14 +108,33 @@ export async function syllabusRoutes(fastify: FastifyInstance) {
       // If database has topics, use them (preferred)
       if (dbTopics.length > 0) {
         fastify.log.info(`Found ${dbTopics.length} curated topics in database for ${curriculum} Grade ${gradeNum} ${subject}`);
+        
+        // Deduplicate topics by name while preserving all IDs (Requirement 4.1, 4.2)
+        const topicMap = new Map<string, string[]>();
+        
+        dbTopics.forEach(topic => {
+          const existing = topicMap.get(topic.topicName);
+          if (existing) {
+            existing.push(topic.id);
+          } else {
+            topicMap.set(topic.topicName, [topic.id]);
+          }
+        });
+        
+        // Return deduplicated topics with combined IDs (Requirement 4.4)
+        const deduplicatedTopics = Array.from(topicMap.entries()).map(([name, ids]) => ({
+          topicId: ids.join(','), // Combine IDs for multi-selection
+          topicName: name,
+          syllabusCount: ids.length, // Track how many syllabus entries
+        }));
+        
+        fastify.log.info(`Deduplicated to ${deduplicatedTopics.length} unique topics`);
+        
         return reply.send({
           curriculum,
           grade: gradeNum,
           subject,
-          topics: dbTopics.map(topic => ({
-            topicId: topic.id,
-            topicName: topic.topicName,
-          })),
+          topics: deduplicatedTopics,
           source: 'database',
         });
       }

@@ -137,13 +137,16 @@ export class EvaluatorService {
    * Normalize answer for comparison
    * Removes extra whitespace and converts to lowercase
    * Handles both string and array inputs
+   * Strips option prefixes (A), B), C), D), etc.) for robust comparison
    */
   private normalizeAnswer(answer: string | string[]): string {
     // Handle array input - take first element or join
     const answerStr = Array.isArray(answer) ? (answer[0] || '') : (answer || '');
     // Ensure it's a string before calling trim
     const str = typeof answerStr === 'string' ? answerStr : String(answerStr);
-    return str.trim().toLowerCase().replace(/\s+/g, ' ');
+    // Strip option prefixes like "A)", "B)", "1)", "a.", etc.
+    const withoutPrefix = str.replace(/^[A-Da-d1-4][\)\.\:\-]\s*/, '');
+    return withoutPrefix.trim().toLowerCase().replace(/\s+/g, ' ');
   }
 
   /**

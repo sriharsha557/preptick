@@ -46,7 +46,7 @@ describe('TestExecutionService', () => {
         questionText: 'What is 2 + 2?',
         questionType: 'MultipleChoice',
         options: JSON.stringify(['3', '4', '5', '6']),
-        correctAnswer: '4',
+        correctAnswers: JSON.stringify(['4']),
         syllabusReference: 'Section 1.1',
       },
     });
@@ -56,7 +56,7 @@ describe('TestExecutionService', () => {
         topicId,
         questionText: 'What is 5 * 3?',
         questionType: 'Numerical',
-        correctAnswer: '15',
+        correctAnswers: JSON.stringify(['15']),
         syllabusReference: 'Section 1.2',
       },
     });
@@ -66,7 +66,7 @@ describe('TestExecutionService', () => {
         topicId,
         questionText: 'Solve for x: x + 5 = 10',
         questionType: 'ShortAnswer',
-        correctAnswer: '5',
+        correctAnswers: JSON.stringify(['5']),
         syllabusReference: 'Section 1.3',
       },
     });

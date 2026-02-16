@@ -62,6 +62,58 @@ const HEADER_FONTS = {
 };
 
 /**
+ * Strip option prefix from LLM-generated options
+ * Removes prefixes like "A)", "B)", "1.", "a)", etc.
+ * This prevents double prefixes when the PDF adds its own A. B. labels
+ */
+function stripOptionPrefix(option: string): string {
+  // Match patterns like: A), B), a), b), 1), 2), A., B., 1., A:, A-, etc.
+  return option.replace(/^[A-Da-d1-4][\)\.\:\-]\s*/, '').trim();
+}
+
+/**
+ * Safely parse solution steps from various input formats
+ * Handles string (JSON), array, and null/undefined inputs
+ * Requirements: 3.4
+ * 
+ * @param steps - Solution steps in various formats (string, array, null, undefined)
+ * @returns Array of solution step strings, or undefined for invalid inputs
+ */
+function parseSolutionSteps(steps: any): string[] | undefined {
+  // Handle null or undefined
+  if (steps === null || steps === undefined) {
+    return undefined;
+  }
+
+  // Handle array input (already parsed)
+  if (Array.isArray(steps)) {
+    // Validate that all elements are strings
+    if (steps.every(step => typeof step === 'string')) {
+      return steps.length > 0 ? steps : undefined;
+    }
+    return undefined;
+  }
+
+  // Handle string input (JSON)
+  if (typeof steps === 'string') {
+    try {
+      const parsed = JSON.parse(steps);
+      // Recursively validate the parsed result
+      if (Array.isArray(parsed) && parsed.every(step => typeof step === 'string')) {
+        return parsed.length > 0 ? parsed : undefined;
+      }
+      return undefined;
+    } catch {
+      // Malformed JSON - return undefined
+      return undefined;
+    }
+  }
+
+  // Invalid input type
+  return undefined;
+}
+
+/**
  * Add logo watermark to the current page
  * Renders a semi-transparent logo in the center of the page
  */
@@ -343,10 +395,11 @@ export async function generateQuestionPaper(
         
         question.options.forEach((option, optIndex) => {
           const optionLabel = String.fromCharCode(65 + optIndex); // A, B, C, D...
+          const cleanOption = stripOptionPrefix(option); // Remove any existing prefix
           doc
             .fontSize(10)
             .font('Helvetica')
-            .text(`${symbol} ${optionLabel}. ${option}`, {
+            .text(`${symbol} ${optionLabel}. ${cleanOption}`, {
               indent: 40,
             });
           doc.moveDown(0.2);
@@ -477,10 +530,11 @@ export async function generateAnswerKey(
         
         question.options.forEach((option, optIndex) => {
           const optionLabel = String.fromCharCode(65 + optIndex); // A, B, C, D...
+          const cleanOption = stripOptionPrefix(option); // Remove any existing prefix
           doc
             .fontSize(10)
             .font('Helvetica')
-            .text(`${symbol} ${optionLabel}. ${option}`, {
+            .text(`${symbol} ${optionLabel}. ${cleanOption}`, {
               indent: 40,
             });
           // Add spacing between options (8px) - Requirement 1.5
@@ -517,25 +571,23 @@ export async function generateAnswerKey(
       doc.fillColor('black');
 
       // Add spacing between answer and solution (15px) - Requirement 1.4
-      if (question.solutionSteps) {
-        doc.moveDown(PDF_SPACING.solutionGap / 12); // Convert pixels to approximate line spacing
-      }
+      doc.moveDown(PDF_SPACING.solutionGap / 12); // Convert pixels to approximate line spacing
 
       // Add solution steps (Requirement 4.4)
-      // Parse solutionSteps from JSON string if needed
-      let solutionSteps: string[] | undefined;
-      if (question.solutionSteps) {
-        if (typeof question.solutionSteps === 'string') {
-          try {
-            solutionSteps = JSON.parse(question.solutionSteps);
-          } catch {
-            solutionSteps = undefined;
-          }
-        } else if (Array.isArray(question.solutionSteps)) {
-          solutionSteps = question.solutionSteps;
-        }
+      // Use parseSolutionSteps helper to safely parse solution steps
+      const solutionSteps = parseSolutionSteps(question.solutionSteps);
+      if (solutionSteps && solutionSteps.length > 0) {
+        addSolutionSteps(doc, solutionSteps);
+      } else {
+        // Add note when solution steps are unavailable (Requirement 3.5)
+        doc
+          .fontSize(9)
+          .font('Helvetica-Oblique')
+          .fillColor('gray')
+          .text('(Detailed solution steps not available)', { indent: 20 });
+        doc.fillColor('black');
+        doc.moveDown(0.5);
       }
-      addSolutionSteps(doc, solutionSteps);
 
       // Syllabus reference
       doc
@@ -752,10 +804,11 @@ function generateTestContent(
       
       question.options.forEach((option, optIndex) => {
         const optionLabel = String.fromCharCode(65 + optIndex); // A, B, C, D...
+        const cleanOption = stripOptionPrefix(option); // Remove any existing prefix
         doc
           .fontSize(10)
           .font('Helvetica')
-          .text(`${symbol} ${optionLabel}. ${option}`, {
+          .text(`${symbol} ${optionLabel}. ${cleanOption}`, {
             indent: 40,
           });
         doc.moveDown(0.2);
@@ -869,10 +922,11 @@ function generateAnswerKeyContent(doc: PDFKit.PDFDocument, test: MockTest): void
       
       question.options.forEach((option, optIndex) => {
         const optionLabel = String.fromCharCode(65 + optIndex); // A, B, C, D...
+        const cleanOption = stripOptionPrefix(option); // Remove any existing prefix
         doc
           .fontSize(10)
           .font('Helvetica')
-          .text(`${symbol} ${optionLabel}. ${option}`, {
+          .text(`${symbol} ${optionLabel}. ${cleanOption}`, {
             indent: 40,
           });
         doc.moveDown(0.2);
@@ -927,10 +981,10 @@ function generateAnswerKeyContent(doc: PDFKit.PDFDocument, test: MockTest): void
 
   doc.moveDown(1);
 
-  // Answer key entries (compact format)
+  // Answer key entries (with solution steps)
   questions.forEach((question, index) => {
     // Check if we need a new page
-    if (doc.y > 720) {
+    if (doc.y > 650) {
       doc.addPage();
       doc
         .fontSize(14)
@@ -939,29 +993,94 @@ function generateAnswerKeyContent(doc: PDFKit.PDFDocument, test: MockTest): void
       doc.moveDown(1);
     }
 
-    const correctAnswer = answerKey.get(question.questionId);
-
-    // Question number and answer on same line
+    // Question number
     doc
       .fontSize(11)
       .font('Helvetica-Bold')
-      .text(`Q${index + 1}: `, { continued: true });
+      .text(`Question ${index + 1}:`, { continued: false });
 
+    doc.moveDown(0.3);
+
+    // Question text
     doc
+      .fontSize(10)
       .font('Helvetica')
+      .text(question.questionText, {
+        align: 'left',
+        indent: 20,
+      });
+
+    doc.moveDown(0.3);
+
+    const correctAnswer = answerKey.get(question.questionId);
+    let correctAnswerText = 'N/A';
+    
+    if (correctAnswer) {
+      // Try to parse as JSON array for multiple answers
+      try {
+        const parsedAnswer = JSON.parse(correctAnswer);
+        if (Array.isArray(parsedAnswer)) {
+          correctAnswerText = parsedAnswer.join(', ');
+        } else {
+          correctAnswerText = correctAnswer;
+        }
+      } catch {
+        correctAnswerText = correctAnswer;
+      }
+    }
+
+    // Correct answer
+    doc
+      .fontSize(10)
+      .font('Helvetica-Bold')
       .fillColor('green')
-      .text(correctAnswer || 'N/A', { continued: false });
+      .text(`Correct Answer: ${correctAnswerText}`, { indent: 20 });
 
-    doc.fillColor('black'); // Reset color
+    doc.fillColor('black');
 
-    // Syllabus reference (smaller, on next line)
+    // Add spacing between answer and solution
+    doc.moveDown(PDF_SPACING.solutionGap / 12);
+
+    // Add solution steps (consistent with generateAnswerKey)
+    const solutionSteps = parseSolutionSteps(question.solutionSteps);
+    if (solutionSteps && solutionSteps.length > 0) {
+      addSolutionSteps(doc, solutionSteps);
+    } else {
+      // Add note when solution steps are unavailable
+      doc
+        .fontSize(9)
+        .font('Helvetica-Oblique')
+        .fillColor('gray')
+        .text('(Detailed solution steps not available)', { indent: 20 });
+      doc.fillColor('black');
+      doc.moveDown(0.5);
+    }
+
+    // Syllabus reference
     doc
       .fontSize(8)
       .font('Helvetica-Oblique')
       .fillColor('gray')
-      .text(`   Ref: ${question.syllabusReference}`, { indent: 30 });
+      .text(`Reference: ${question.syllabusReference}`, { indent: 20 });
 
-    doc.fillColor('black'); // Reset color
-    doc.moveDown(0.8);
+    doc.fillColor('black');
+
+    // Add separator line between questions
+    if (index < questions.length - 1) {
+      doc.moveDown(PDF_SPACING.separatorPadding / 12);
+      
+      const lineY = doc.y;
+      doc
+        .moveTo(50, lineY)
+        .lineTo(545, lineY)
+        .strokeColor('#cccccc')
+        .lineWidth(0.5)
+        .stroke();
+      
+      doc.strokeColor('black').lineWidth(1);
+      doc.moveDown((PDF_SPACING.separatorPadding + PDF_SPACING.questionGap) / 12);
+    } else {
+      doc.moveDown(1);
+    }
   });
 }

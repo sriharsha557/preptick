@@ -69,7 +69,7 @@ describe('EvaluatorService', () => {
             question: {
               id: 'q1',
               topicId: 'topic-1',
-              correctAnswer: 'A',
+              correctAnswers: JSON.stringify(['A']),
               questionType: 'MultipleChoice',
               topic: { topicName: 'Algebra' },
             },
@@ -78,7 +78,7 @@ describe('EvaluatorService', () => {
             question: {
               id: 'q2',
               topicId: 'topic-1',
-              correctAnswer: 'B',
+              correctAnswers: JSON.stringify(['B']),
               questionType: 'MultipleChoice',
               topic: { topicName: 'Algebra' },
             },
@@ -87,7 +87,7 @@ describe('EvaluatorService', () => {
             question: {
               id: 'q3',
               topicId: 'topic-1',
-              correctAnswer: 'C',
+              correctAnswers: JSON.stringify(['C']),
               questionType: 'MultipleChoice',
               topic: { topicName: 'Algebra' },
             },
@@ -129,7 +129,7 @@ describe('EvaluatorService', () => {
             question: {
               id: 'q1',
               topicId: 'topic-1',
-              correctAnswer: 'A',
+              correctAnswers: JSON.stringify(['A']),
               questionType: 'MultipleChoice',
               topic: { topicName: 'Algebra' },
             },
@@ -138,7 +138,7 @@ describe('EvaluatorService', () => {
             question: {
               id: 'q2',
               topicId: 'topic-1',
-              correctAnswer: 'B',
+              correctAnswers: JSON.stringify(['B']),
               questionType: 'MultipleChoice',
               topic: { topicName: 'Algebra' },
             },
@@ -147,7 +147,7 @@ describe('EvaluatorService', () => {
             question: {
               id: 'q3',
               topicId: 'topic-2',
-              correctAnswer: 'C',
+              correctAnswers: JSON.stringify(['C']),
               questionType: 'MultipleChoice',
               topic: { topicName: 'Geometry' },
             },
@@ -199,7 +199,7 @@ describe('EvaluatorService', () => {
             question: {
               id: 'q1',
               topicId: 'topic-1',
-              correctAnswer: 'A',
+              correctAnswers: JSON.stringify(['A']),
               questionType: 'MultipleChoice',
               topic: { topicName: 'Algebra' },
             },
